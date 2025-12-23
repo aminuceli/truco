@@ -17,11 +17,10 @@ static_files = {
     '/shuffle.mp3': 'shuffle.mp3',
     '/card.mp3': 'card.mp3',
     '/truco.mp3': 'truco.mp3',
-    '/correr.mp3': 'correr.mp3',
+    '/correr.mp3': 'correr.mp3'
 }
 
-# Aqui conectamos a lista de arquivos ao App
-app = socketio.ASGIApp(sio)
+app = socketio.ASGIApp(sio, static_files=static_files)
 
 jogos = {}
 ultimos_sinais = {} 
@@ -523,5 +522,6 @@ async def enviar_emote(sid, d):
 
 @sio.event
 async def sair_do_jogo(sid): await gerenciar_desistencia(sid)
+
 
 sio.start_background_task(loop_monitoramento_afk)
