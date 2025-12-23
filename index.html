@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-<head>
-    <head>
+<head>  
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Truco Pro Final</title>
@@ -487,6 +486,45 @@
         .balao-esq { left: 160px; top: 50%; transform: translateY(-50%); } .balao-esq::after { border-color: transparent white transparent transparent; right: 100%; top: 50%; margin-top: -10px; }
         .balao-dir { right: 160px; top: 50%; transform: translateY(-50%); } .balao-dir::after { border-color: transparent transparent transparent white; left: 100%; top: 50%; margin-top: -10px; }
         @keyframes popIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        /* =========================================
+       AJUSTES PARA CELULAR (MOBILE)
+       ========================================= */
+    @media (max-width: 600px) {
+        /* Garante que sua mão não seja mais larga que a tela */
+        #pos-eu {
+            width: 100% !important; 
+            max-width: 100%;
+            padding: 0 10px; /* Um pouco de margem nas laterais */
+            bottom: 10px;
+        }
+
+        /* Ajusta o tamanho das cartas para ficarem boas no toque */
+        .carta {
+            width: 70px;  /* Levemente menor para caber 3 lado a lado */
+            height: 105px;
+        }
+
+        /* Diminui um pouco os rivais e parceiro para sobrar espaço no meio */
+        #pos-parceiro { transform: translateX(-50%) scale(0.85); top: 5px; }
+        
+        /* Ajusta as laterais para não cobrirem o centro */
+        #pos-rival-esq { 
+            left: -20px; /* Puxa mais para a borda */
+            transform: translateY(-50%) rotate(90deg) scale(0.8); 
+        }
+        #pos-rival-dir { 
+            right: -20px; 
+            transform: translateY(-50%) rotate(-90deg) scale(0.8); 
+        }
+        
+        /* Ajusta o botão de Truco para não ficar gigante */
+        #btn-truco {
+            width: 80px; height: 80px; font-size: 16px; bottom: 120px; right: 10px;
+        }
+        
+        /* Chat menor */
+        #btn-abrir-chat { bottom: 120px; right: 100px; width: 50px; height: 50px; font-size: 25px; }
+    }
     </style>
 </head>
 <body>
@@ -910,3 +948,4 @@
 </body>
 
 </html>
+
