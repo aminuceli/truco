@@ -5,9 +5,22 @@ import time
 from truco_core import TrucoGame, Mao, Carta
 
 # ==============================================================================
-# CONFIGURAÇÕES INICIAIS
+# CONFIGURAÇÕES INICIAIS (CORRIGIDO)
 # ==============================================================================
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
+
+# Lista de arquivos que o site precisa carregar
+static_files = {
+    '/': 'index.html',
+    '/win.mp3': 'win.mp3',
+    '/lose.mp3': 'lose.mp3',
+    '/shuffle.mp3': 'shuffle.mp3',
+    '/card.mp3': 'card.mp3',
+    '/truco.mp3': 'truco.mp3',
+    '/correr.mp3': 'correr.mp3',
+}
+
+# Aqui conectamos a lista de arquivos ao App
 app = socketio.ASGIApp(sio)
 
 jogos = {}
