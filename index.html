@@ -397,7 +397,7 @@
         .modo-btn.selecionado { background: #4caf50; border-color: #2e7d32; box-shadow: 0 0 15px #4caf50; }
         
         #lista-salas-container { 
-            width: 90%; /* Ajuste Mobile */
+            width: 90%; 
             max-width: 500px; 
             height: 350px; 
             background: #222; 
@@ -500,29 +500,45 @@
             /* Diminui a borda da mesa para ganhar espaço */
             .mesa { border-width: 5px; }
 
-            /* TRUQUE MÁGICO: Encolhe a área central inteira (baralho, vira, slots) para caber na tela */
+            /* TRUQUE MÁGICO: Sobe a mesa e diminui para dar espaço para SUAS cartas */
             .centro-absoluto {
-                transform: translate(-50%, -50%) scale(0.65); /* Reduz para 65% do tamanho */
-                width: 100%; /* Garante que não alargue a tela */
+                top: 40%; /* Joga a mesa mais para cima */
+                transform: translate(-50%, -50%) scale(0.65); /* Reduz o centro */
+                width: 100%;
             }
 
-            /* Jogador (EU) */
-            #pos-eu { width: 100% !important; max-width: 100%; padding: 0 5px; bottom: 5px; }
+            /* SUAS CARTAS - BEM GRANDES E LARGAS */
+            #pos-eu { 
+                width: 100% !important; 
+                max-width: 100%; 
+                padding: 0 5px; 
+                bottom: 10px; 
+                height: 160px; /* Mais alto para caber a carta grande */
+            }
             #meu-nome-display { font-size: 14px; margin-bottom: 2px; }
+            
+            /* Aumenta especificamente as SUAS cartas */
+            #pos-eu .carta {
+                width: 100px;  /* BEM GRANDE */
+                height: 150px; 
+                margin: 0 -10px; /* Sobrepõe um pouquinho se precisar */
+            }
+
+            /* CARTAS DOS OUTROS (MANTÉM PEQUENAS PARA CABER) */
+            .carta { width: 60px; height: 90px; }
 
             /* Parceiro e Rivais mais compactos */
             #pos-parceiro { transform: translateX(-50%) scale(0.8); top: 5px; }
             #pos-rival-esq { left: -30px; transform: translateY(-50%) rotate(90deg) scale(0.75); }
             #pos-rival-dir { right: -30px; transform: translateY(-50%) rotate(-90deg) scale(0.75); }
 
-            /* Cartas menores para caber 3 lado a lado */
-            .carta { width: 70px; height: 105px; }
-
-            /* Botão de Truco e Chat ajustados */
-            #btn-truco { width: 75px; height: 75px; font-size: 14px; bottom: 110px; right: 10px; border-width: 3px; }
-            #btn-abrir-chat { bottom: 110px; right: 95px; width: 45px; height: 45px; font-size: 20px; border-width: 2px; }
-            #menu-chat { width: 280px; bottom: 160px; right: 10px; }
+            /* Botão de Truco e Chat ajustados para cima das cartas */
+            #btn-truco { width: 80px; height: 80px; font-size: 14px; bottom: 170px; right: 10px; border-width: 3px; }
+            #btn-abrir-chat { bottom: 170px; right: 100px; width: 45px; height: 45px; font-size: 20px; border-width: 2px; }
+            #menu-chat { width: 280px; bottom: 220px; right: 10px; }
             
+            #status-vez { bottom: 250px; font-size: 18px; }
+
             /* Ajustes nos Textos dos Modals (Login e Truco) */
             #login-screen h1 { font-size: 40px !important; }
             #login-screen input { width: 80% !important; }
