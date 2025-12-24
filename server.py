@@ -410,12 +410,17 @@ async def responder_truco_logica(nome_sala, sid, resposta, dados_extras=None):
         # Se eu corri (idx), o vencedor é o outro time.
         # Correção: Enviamos o NOME visual do time vencedor (Time 1 ou Time 2)
         idx_vencedor = 1 if (idx % 2) == 0 else 0
-        await finalizar_mao(nome_sala, f"Time {idx_vencedor + 1}")
+        await finalizar_mao(nome_sala, idx_vencedor)
     
     elif resposta == 'AUMENTAR':
         pedinte_original_idx = sala.get('pedinte_temp')
         repicador_idx = sala['jogadores'].index(sid)
         novo_valor = dados_extras.get('novo_valor', 3) if dados_extras else 0
+        # --- CORREÇÃO DO SOM NO AUMENTO (O que faltava) ---
+        som_aumento = None
+        if novo_valor == 6: som_aumento = 'seis'
+        elif novo_valor == 9: som_aumento = 'nove'
+        elif novo_valor == 12: som_aumento = 'doze'
         sala['valor_proposto_temp'] = novo_valor 
         sala['pedinte_temp'] = repicador_idx 
         sala['estado_jogo'] = 'TRUCO' 
@@ -482,7 +487,7 @@ async def responder_mao_11(sid, dados):
         sala['mao'].valor_atual = 1
         idx = sala['jogadores'].index(sid)
         idx_vencedor = 1 if (idx % 2) == 0 else 0
-        await finalizar_mao(n, f"Time {idx_vencedor + 1}")
+        await finalizar_mao(n, idx_vencedor)
 
 # ==============================================================================
 # 4. EVENTOS DE CONEXÃO E SALAS
@@ -597,3 +602,4 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
