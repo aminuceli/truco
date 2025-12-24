@@ -1,2 +1,5 @@
 python-socketio
 uvicorn
+fastapi
+websockets
+jinja2
