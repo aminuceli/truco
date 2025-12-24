@@ -263,7 +263,7 @@ async def iniciar_nova_mao(nome_sala):
         if p_sid.startswith('BOT'): continue
         cartas_json = [{'valor': c.valor, 'naipe': c.naipe} for c in maos[i]]
         vira_json = {'valor': vira.valor, 'naipe': vira.naipe}
-        blind = True if eh_ferro else False
+        blind = False
         await sio.emit('receber_mao', {
             'minhas_cartas': cartas_json, 'vira': vira_json, 
             'animar': True, 'blind': blind, 'seu_indice': i, 'modo_jogo': num_p
@@ -624,6 +624,7 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
 
