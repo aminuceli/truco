@@ -210,7 +210,7 @@ async def processar_jogada_carta(nome_sala, sid, carta_obj):
             vencedor_txt = f"Time {time_vencedor_rodada + 1}"
 
         sala['mao'].verificar_fim_mao() 
-        
+        await notificar_info_jogo(nome_sala)
         for p in sala['jogadores']:
             if not p.startswith('BOT'):
                 await sio.emit('resultado_rodada', {'vencedor': vencedor_txt}, to=p)
@@ -627,5 +627,6 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
