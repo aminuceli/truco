@@ -201,7 +201,7 @@ async def processar_jogada_carta(nome_sala, sid, carta_obj):
         else:
             time_vencedor_rodada = idx_venc % 2
             sala['mao'].rodadas.append(time_vencedor_rodada)
-            vencedor_txt = f"Time {time_vencedor_rodada + 1}"
+            idx_venc = sala['jogadores'].index(sid_j)
 
         sala['mao'].verificar_fim_mao() 
         # AVISO DE PLACAR DA RODADA (Acende as bolinhas)
@@ -608,5 +608,6 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
