@@ -623,26 +623,26 @@
             });
         });
 
-        // --- Função nova para as bolinhas ---
         function atualizarBolinhas(rodadas) {
             const container = document.getElementById('bolinhas-display');
             if(!container) return;
             const divs = container.getElementsByClassName('bolinha');
             
-            // 1. Limpa todas (deixa cinza)
             for(let d of divs) d.className = 'bolinha';
 
-            if(!rodadas) return;
+            if(!rodadas || rodadas.length === 0) return;
 
-            // 2. Pinta conforme quem ganhou
             rodadas.forEach((ganhador, i) => {
                 if(i < 3) {
                     if (ganhador === -1) {
-                        divs[i].classList.add('empate'); // Amarelo
+                        divs[i].classList.add('empate');
                     } else {
                         const meuTime = meuIndice % 2; 
-                        if (ganhador === meuTime) divs[i].classList.add('venceu-nos'); // Azul
-                        else divs[i].classList.add('venceu-eles'); // Vermelho
+                        if (ganhador === meuTime) {
+                            divs[i].classList.add('venceu-nos'); 
+                        } else {
+                            divs[i].classList.add('venceu-eles');
+                        }
                     }
                 }
             });
@@ -762,47 +762,37 @@
         const CORES = { 'Ouros': 'naipe-vermelho', 'Copas': 'naipe-vermelho', 'Espadas': 'naipe-preto', 'Paus': 'naipe-preto' };
 
         socket.on('receber_mao', (d) => {
-            // 1. Toca som e anima o baralho
             atualizarBolinhas([]);
             if(sons['shuffle']) sons['shuffle'].play().catch(e=>{});
             
             const baralhoEl = document.querySelector('.baralho-mesa');
-            baralhoEl.classList.remove('embaralhando'); // Reseta se já tiver
-            void baralhoEl.offsetWidth; // Força o reflow para reiniciar animação
+            baralhoEl.classList.remove('embaralhando'); 
+            void baralhoEl.offsetWidth; 
             baralhoEl.classList.add('embaralhando');
 
             mostrarMensagem("Nova Mão!", 1500);
             meuIndice = d.seu_indice; modoAtual = d.modo_jogo; 
             
-            // Limpa mesa
             ['pos-parceiro','pos-rival-esq','pos-rival-dir'].forEach(id => document.querySelector(`#${id} .cartas-container`).innerHTML = '');
             ['slot-eu','slot-parceiro','slot-esq','slot-dir'].forEach(id => document.getElementById(id).innerHTML = '');
             document.getElementById('minhas-cartas-box').innerHTML = '';
             document.getElementById('slot-vira').innerHTML = '';
             
-            // 2. Cria a Manilha (Vira) com animação de deslize
             const cartaVira = criarCartaHTML(d.vira, false);
-            // Adiciona classe para animar o vira saindo de baixo
             document.querySelector('.vira-container').classList.remove('vira-anim-entrada');
-            void document.querySelector('.vira-container').offsetWidth; // Reflow
+            void document.querySelector('.vira-container').offsetWidth; 
             document.querySelector('.vira-container').classList.add('vira-anim-entrada');
             
             document.getElementById('slot-vira').appendChild(cartaVira);
             
-            // 3. Distribui cartas do jogador com efeito "voando"
             d.minhas_cartas.forEach((c, index) => {
                 const el = criarCartaHTML(c, true);
                 if(d.blind) el.className += " carta-verso";
-                
-                // Adiciona animação de distribuição
                 el.classList.add('carta-distribuida');
-                // Adiciona um delay escalonado (0s, 0.1s, 0.2s) para parecer que está dando carta por carta
                 el.style.animationDelay = `${index * 0.1}s`; 
-
                 document.getElementById('minhas-cartas-box').appendChild(el);
             });
 
-            // Cria cartas dos rivais (verso)
             const qtd = 3; 
             for(let i=0; i<qtd; i++) {
                 if(modoAtual === 4) {
@@ -816,24 +806,19 @@
         });
 
         socket.on('decisao_mao_11', (d) => {
-            // 1. Atualiza o texto (Ex: "Cartas do Parceiro" ou "Jogar a mão?")
             const tituloEl = document.getElementById('msg-mao-11');
             if(tituloEl) tituloEl.innerText = d.titulo || "Cartas:";
 
-            // 2. Renderiza as cartas (do parceiro ou suas)
             const container = document.getElementById('cartas-parceiro-view'); 
             container.innerHTML = '';
             d.cartas_parceiro.forEach(c => container.appendChild(criarCartaHTML(c, false)));
             
-            // 3. Renderiza o Vira (NOVO)
             const containerVira = document.getElementById('vira-mao-11-view');
             if(containerVira) {
                 containerVira.innerHTML = '';
-                // Cria a carta do Vira visualmente (sem ser clicável)
                 containerVira.appendChild(criarCartaHTML(d.vira, false));
             }
 
-            // Exibe o modal
             document.getElementById('modal-mao-11').style.display = 'flex';
         });
         function responderMao11(resp) {
@@ -931,11 +916,12 @@
             else if (v === 3) btn.innerText = "SEIS"; 
             else if (v === 6) btn.innerText = "NOVE"; 
             else if (v === 9) btn.innerText = "DOZE";
+            else if (v === 12) btn.innerText = "VALE 12"; 
 
-            const estamosEmMaoDe11 = (placarAtual[0] === 11 || placarAtual[1] === 11);
-
-            if(v >= 12 || estamosEmMaoDe11) {
-                btn.style.display = 'none';
+            const maoDe11 = (placarAtual[0] === 11 && placarAtual[1] !== 11) || (placarAtual[1] === 11 && placarAtual[0] !== 11);
+            
+            if(v >= 12 || maoDe11 || (placarAtual[0]===11 && placarAtual[1]===11)) {
+                btn.style.display = 'none'; 
             } else {
                 btn.style.display = 'block';
                 if (donoDaAposta === meuIndice || interfaceBloqueada) {
