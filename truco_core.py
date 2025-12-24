@@ -55,11 +55,26 @@ class TrucoGame:
         idx_manilha = (idx_vira + 1) % len(FORCA_PADRAO)
         self.manilha_da_rodada = FORCA_PADRAO[idx_manilha]
 
-    def calcular_forca(self, carta):
+    def calcular_forca(self, carta, considerar_naipe=False):
+        """
+        Calcula a força. 
+        Se 'considerar_naipe' for True, usa o naipe para desempatar cartas comuns.
+        """
+        # 1. Manilha sempre ganha e sempre considera naipe (já existente)
         if carta.valor == self.manilha_da_rodada:
             return 100 + NAIPES[carta.naipe]
-        return FORCA_PADRAO.index(carta.valor)
-
+            
+        valor_base = FORCA_PADRAO.index(carta.valor)
+        
+        # 2. Regra Nova: Desempate por naipe em cartas comuns
+        if considerar_naipe:
+            # Multiplicamos o valor por 10 para manter a hierarquia da carta
+            # e somamos o naipe para desempatar.
+            # Ex: 3 de Paus (9*10 + 4 = 94) vence 3 de Ouros (9*10 + 1 = 91)
+            # Nota: O máximo aqui é 94, que ainda é menor que a Manilha (mínimo 101)
+            return (valor_base * 10) + NAIPES[carta.naipe]
+            
+        return valor_base
 class Mao:
     def __init__(self, jogo):
         self.jogo = jogo
