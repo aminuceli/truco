@@ -29,14 +29,12 @@ static_files = {
 
 app = socketio.ASGIApp(sio, static_files=static_files)
 
-# Listas de sons simplificadas
 SONS_TRUCO = ['truco', 'truco1'] 
 SONS_CORRER = ['correr', 'correr1']
-# Listas de sons para sorteio
-SONS_SEIS = ['seis']              # Sem .mp3
-SONS_NOVE = ['nove']              # Sem .mp3
-SONS_DOZE = ['doze']              # Sem .mp3
-SONS_CORRER = ['correr', 'correr1'] # Sem .mp3
+SONS_SEIS = ['seis']              
+SONS_NOVE = ['nove']              
+SONS_DOZE = ['doze']              
+SONS_CORRER = ['correr', 'correr1'] 
 def get_som_aleatorio(lista):
     if not lista: return None
     return random.choice(lista)
@@ -629,4 +627,5 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
