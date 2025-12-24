@@ -460,9 +460,9 @@ async def pedir_truco(sid, dados):
     
     som_escolhido = get_som_aleatorio(SONS_TRUCO)
     val = int(dados['valor'])
-    if val == 6: som_escolhido = get_som_aleatorio (SONS_SEIS) = '6'
-    elif val == 9: som_escolhido = get_som_aleatorio (SONS_NOVE) ='9'
-    elif val == 12: som_escolhido = get_som_aleatorio (SONS_DOZE) ='12'
+    if val == 6: som_escolhido = get_som_aleatorio (SONS_SEIS) = 'seis'
+    elif val == 9: som_escolhido = get_som_aleatorio (SONS_NOVE) ='nove'
+    elif val == 12: som_escolhido = get_som_aleatorio (SONS_DOZE) ='doze'
 
     await emitir_som(n, som_escolhido)
   
@@ -610,6 +610,7 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
 
