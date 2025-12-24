@@ -32,7 +32,11 @@ app = socketio.ASGIApp(sio, static_files=static_files)
 # Listas de sons simplificadas
 SONS_TRUCO = ['truco', 'truco1'] 
 SONS_CORRER = ['correr', 'correr1']
-
+# Listas de sons para sorteio
+SONS_SEIS = ['seis']              # Sem .mp3
+SONS_NOVE = ['nove']              # Sem .mp3
+SONS_DOZE = ['doze']              # Sem .mp3
+SONS_CORRER = ['correr', 'correr1'] # Sem .mp3
 def get_som_aleatorio(lista):
     if not lista: return None
     return random.choice(lista)
@@ -207,7 +211,7 @@ async def processar_jogada_carta(nome_sala, sid, carta_obj):
             sala['mao'].rodadas.append(time_vencedor_rodada)
             vencedor_txt = f"Time {time_vencedor_rodada + 1}"
 
-        sala['jogo'].verificar_fim_mao() 
+        sala['mao'].verificar_fim_mao() 
         
         for p in sala['jogadores']:
             if not p.startswith('BOT'):
@@ -625,3 +629,4 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
