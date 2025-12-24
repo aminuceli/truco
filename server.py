@@ -159,7 +159,6 @@ async def bot_jogar_delay(nome_sala, idx_bot):
     except Exception as e:
         print(f"ERRO CRÍTICO NO BOT: {e}")
         traceback.print_exc()
-
 async def processar_jogada_carta(nome_sala, sid, carta_obj):
     if nome_sala not in jogos: return
     sala = jogos[nome_sala]
@@ -170,7 +169,6 @@ async def processar_jogada_carta(nome_sala, sid, carta_obj):
 
     num_p = sala['max_jogadores']
     
-    # Verifica se todos jogaram
     if len(sala['mesa_cartas']) < num_p:
         sala['vez_atual_idx'] = (sala['vez_atual_idx'] + 1) % num_p
         await atualizar_turnos(nome_sala)
@@ -179,7 +177,6 @@ async def processar_jogada_carta(nome_sala, sid, carta_obj):
         await atualizar_turnos(nome_sala) 
         await asyncio.sleep(1.5)
         
-        # --- LÓGICA DE QUEM GANHOU A RODADA ---
         maior_forca = -1
         idx_venc = -1
         empate = False
@@ -196,28 +193,27 @@ async def processar_jogada_carta(nome_sala, sid, carta_obj):
             elif f == maior_forca:
                 empate = True 
         
-        # Define o vencedor da rodada
         vencedor_txt = ""
+        proximo_a_jogar = -1
+
         if empate:
             sala['mao'].rodadas.append(-1)
             vencedor_txt = "EMPATE (Canga)"
-            # No empate, quem começa a próxima é quem começou esta (regra padrão)
-            # ou o vencedor da anterior (dependendo da sua regra).
-            # Vamos manter quem começou a mão se for a primeira, ou quem cravou a anterior.
-            proximo_a_jogar = (sala['jogador_inicial_mao'] + len(sala['mao'].rodadas)) % num_p
-            if idx_venc != -1: proximo_a_jogar = idx_venc # Quem fez a maior 'canga' torna
+            # No empate, quem torna é quem ganhou a anterior ou o inicial
+            if idx_venc != -1: 
+                proximo_a_jogar = idx_venc
+            else:
+                proximo_a_jogar = (sala['jogador_inicial_mao'] + len(sala['mao'].rodadas)) % num_p
         else:
             time_vencedor_rodada = idx_venc % 2
             sala['mao'].rodadas.append(time_vencedor_rodada)
-            idx_venc = sala['jogadores'].index(sid_j) # Garante índice correto
-            vencedor_txt = f"Time {time_vencedor_rodada + 1}"
-            proximo_a_jogar = idx_venc # VENCEDOR SAI JOGANDO
+            
+            # --- AJUSTE PARA LETRAS ---
+            vencedor_txt = "Time A" if time_vencedor_rodada == 0 else "Time B"
+            proximo_a_jogar = idx_venc # Vencedor sai jogando
 
         sala['mao'].verificar_fim_mao() 
         
-        # --- CORREÇÃO DO 'PERDEU DEPOIS GANHOU' ---
-        # Só avisa quem ganhou a rodada SE a mão NÃO tiver acabado.
-        # Se a mão acabou, o aviso de 'Fim de Mão' já basta.
         if not sala['mao'].vencedor_mao:
             await notificar_info_jogo(nome_sala)
             for p in sala['jogadores']:
@@ -228,11 +224,9 @@ async def processar_jogada_carta(nome_sala, sid, carta_obj):
         await enviar_estado_mesa(nome_sala)
         
         if not sala['mao'].vencedor_mao:
-            # Segue o jogo: Vencedor da rodada joga a próxima
             sala['vez_atual_idx'] = proximo_a_jogar
             await atualizar_turnos(nome_sala)
         else:
-            # Acabou a mão (alguém fez os pontos ou ganhou as rodadas necessárias)
             await finalizar_mao(nome_sala, sala['mao'].vencedor_mao)
 
 async def iniciar_nova_mao(nome_sala):
@@ -315,76 +309,57 @@ async def finalizar_mao(nome_sala, ganhador_dado):
     sala = jogos[nome_sala]
     pontos = sala['mao'].valor_atual
     
-    # --- CORREÇÃO DEFINITIVA DO PLACAR ---
-    time_venc = 0
+    time_venc = 0 # Padrão Time A (0)
     
-    # Tenta forçar ser um número inteiro primeiro
-    try:
-        # Se vier "1" vira 1, se vier 1 vira 1.
-        time_venc = int(ganhador_dado)
-    except ValueError:
-        # Se der erro (é texto tipo "Time 2"), faz a verificação manual
+    # --- LÓGICA DE DETECÇÃO POR LETRAS ---
+    if isinstance(ganhador_dado, str) and ganhador_dado in sala['jogadores']:
+        idx_jogador = sala['jogadores'].index(ganhador_dado)
+        time_venc = 1 if (idx_jogador % 2) != 0 else 0
+    elif isinstance(ganhador_dado, int):
+        time_venc = ganhador_dado % 2
+    else:
         texto = str(ganhador_dado).upper()
-        if "2" in texto:
-            time_venc = 1 # Time 2 (índice 1)
+        # Se contiver 'B' ou o número '2', pontua para o Time B (Índice 1)
+        if "B" in texto or "2" in texto:
+            time_venc = 1
         else:
-            time_venc = 0 # Time 1 (índice 0)
-    
-    # Garante que é só 0 ou 1 (caso venha um índice de jogador maluco)
-    if time_venc > 1: time_venc = time_venc % 2
-    # ---------------------------------------
-
+            time_venc = 0
+            
     sala['placar'][time_venc] += pontos
-    
-    # LOG para você ver no terminal se funcionou
-    print(f"[DEBUG] Fim de Mao | Ganhador Dado: {ganhador_dado} | Time Vencedor Index: {time_venc} | Pontos: {pontos} | Placar Novo: {sala['placar']}")
+    print(f"[DEBUG] Placar Atualizado: Time {'B' if time_venc else 'A'} ganhou {pontos} pts. Novo Placar: {sala['placar']}")
 
     if max(sala['placar']) >= 12:
         idx_set_winner = 0 if sala['placar'][0] >= 12 else 1
-        
         if 'sets' not in sala: sala['sets'] = [0, 0]
         sala['sets'][idx_set_winner] += 1
         sala['placar'] = [0, 0] 
         
         if sala['sets'][idx_set_winner] >= 2:
-            win_team = "Time 0" if idx_set_winner == 0 else "Time 1"
+            win_team_letra = "A" if idx_set_winner == 0 else "B"
             for i, p in enumerate(sala['jogadores']):
                 if p.startswith('BOT'): continue
-                meu_time = "Time 0" if (i % 2 == 0) else "Time 1"
-                eh_vitoria = (meu_time == win_team)
+                meu_time_idx = i % 2
+                eh_vitoria = (meu_time_idx == idx_set_winner)
                 msg = "VITÓRIA! CAMPEÃO!" if eh_vitoria else "DERROTA! FIM DE JOGO!"
-                sub = f"Placar Final de Sets: {sala['sets'][0]} x {sala['sets'][1]}"
                 snd = 'win' if eh_vitoria else 'lose'
                 await sio.emit('fim_de_jogo', {
                     'titulo': msg, 
-                    'motivo': sub, 
+                    'motivo': f"Time {win_team_letra} venceu a partida!", 
                     'placar': [0,0], 
                     'som': snd
                 }, to=p)
             sala['sets'] = [0, 0] 
-            sala['mesa_cartas'] = [] 
             sala['estado_jogo'] = 'FIM'
         else:
-            placar_sets = f"{sala['sets'][0]} x {sala['sets'][1]}"
-            msg = f"FIM DA PARTIDA! Time {idx_set_winner + 1} venceu o Set.\nSETS: {placar_sets}"
-            for i, p in enumerate(sala['jogadores']):
-                if not p.startswith('BOT'):
-                    await sio.emit('mensagem', msg, to=p)
-                    meu_time = i % 2
-                    som = 'win' if meu_time == idx_set_winner else 'lose'
-                    await sio.emit('tocar_som', {'som': som}, to=p)
             await asyncio.sleep(4)
             await iniciar_nova_mao(nome_sala)
     else:
-        # Notifica o fim da mão com Índice para evitar erro visual
-        nome_exibir = f"Time {time_venc + 1}" 
-        for i, p in enumerate(sala['jogadores']):
+        nome_exibir = "Time A" if time_venc == 0 else "Time B"
+        for p in sala['jogadores']:
             if not p.startswith('BOT'):
-                # Envia quem ganhou (nome) e o INDICE do time vencedor (0 ou 1)
-                # O front-end pode usar 'ganhador_idx' para saber se foi vitória ou derrota com precisão
                 await sio.emit('fim_de_mao', {
                     'ganhador': nome_exibir, 
-                    'ganhador_idx': time_venc, # <-- ADICIONE ISSO PARA O FUTURO
+                    'ganhador_idx': time_venc,
                     'pontos': pontos
                 }, to=p)
         await asyncio.sleep(3)
@@ -654,6 +629,7 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
 
