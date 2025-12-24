@@ -679,11 +679,11 @@
     </div>
 
     <script>
-        const socket = io();
-        let minhaSala = ""; let meuIndice = -1; let modoAtual = 4; let valorAtual = 1; let propostaValor = 1;
-        let donoDaAposta = null;
-        let placarAtual = [0, 0];
-        let sons = {};
+        // Configuração para forçar WebSocket e evitar erros no Render
+        const socket = io({
+            transports: ['websocket'], 
+            upgrade: false
+        });
 
         function carregarSons() {
             const lista = ['card', 'shuffle', 'win', 'lose', 
@@ -1069,6 +1069,7 @@
 </body>
 
 </html>
+
 
 
 
