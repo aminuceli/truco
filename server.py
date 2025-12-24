@@ -31,7 +31,7 @@ static_files = {
 app = socketio.ASGIApp(sio, static_files=static_files)
 
 # Listas de sons (CORRETAS: Sem .mp3)
-SONS_TRUCO = ['truco', 'truco1'] 
+SONS_TRUCO = ['truco', 'truco1','seis','nove','doze' ] 
 SONS_SEIS = ['seis']
 SONS_NOVE = ['nove']
 SONS_DOZE = ['doze']
@@ -300,29 +300,35 @@ async def iniciar_nova_mao(nome_sala):
         for p in sala['jogadores']:
             if not p.startswith('BOT'): await sio.emit('status_vez', {'e_sua_vez': False}, to=p)
 
-async def finalizar_mao(nome_sala, ganhador_str):
+async def finalizar_mao(nome_sala, ganhador_dado):
     if nome_sala not in jogos: return
     sala = jogos[nome_sala]
     pontos = sala['mao'].valor_atual
     
-    # --- CORREÇÃO ROBUSTA DE PONTUAÇÃO ---
+    # --- CORREÇÃO DEFINITIVA DO PLACAR ---
     time_venc = 0
     
-    # 1. Se vier um número inteiro (0 ou 1)
-    if isinstance(ganhador_str, int):
-        time_venc = ganhador_str
-    # 2. Se vier texto (ex: "Time 1" ou "Time 2")
-    elif isinstance(ganhador_str, str):
-        if "Time 2" in ganhador_str: # Time 2 visual = Índice 1
-            time_venc = 1
-        elif "Time 1" in ganhador_str: # Time 1 visual = Índice 0
-            time_venc = 0
+    # Tenta forçar ser um número inteiro primeiro
+    try:
+        # Se vier "1" vira 1, se vier 1 vira 1.
+        time_venc = int(ganhador_dado)
+    except ValueError:
+        # Se der erro (é texto tipo "Time 2"), faz a verificação manual
+        texto = str(ganhador_dado).upper()
+        if "2" in texto:
+            time_venc = 1 # Time 2 (índice 1)
         else:
-            time_venc = 0 # Segurança
+            time_venc = 0 # Time 1 (índice 0)
+    
+    # Garante que é só 0 ou 1 (caso venha um índice de jogador maluco)
+    if time_venc > 1: time_venc = time_venc % 2
     # ---------------------------------------
 
     sala['placar'][time_venc] += pontos
     
+    # LOG para você ver no terminal se funcionou
+    print(f"[DEBUG] Fim de Mao | Ganhador Dado: {ganhador_dado} | Time Vencedor Index: {time_venc} | Pontos: {pontos} | Placar Novo: {sala['placar']}")
+
     if max(sala['placar']) >= 12:
         idx_set_winner = 0 if sala['placar'][0] >= 12 else 1
         
@@ -361,7 +367,7 @@ async def finalizar_mao(nome_sala, ganhador_str):
             await iniciar_nova_mao(nome_sala)
     else:
         # Notifica o fim da mão
-        nome_exibir = f"Time {time_venc + 1}" # Garante exibição visual correta
+        nome_exibir = f"Time {time_venc + 1}" 
         for p in sala['jogadores']:
             if not p.startswith('BOT'):
                 await sio.emit('fim_de_mao', {'ganhador': nome_exibir, 'pontos': pontos}, to=p)
@@ -415,7 +421,7 @@ async def responder_truco_logica(nome_sala, sid, resposta, dados_extras=None):
     elif resposta == 'AUMENTAR':
         pedinte_original_idx = sala.get('pedinte_temp')
         repicador_idx = sala['jogadores'].index(sid)
-        novo_valor = dados_extras.get('novo_valor', 3) if dados_extras else 0
+        novo_valor = int(dados_extras.get('novo_valor', 3)) if dados_extras else 0
         # --- CORREÇÃO DO SOM NO AUMENTO (O que faltava) ---
         som_aumento = None
         if novo_valor == 6: som_aumento = 'seis'
@@ -451,7 +457,7 @@ async def pedir_truco(sid, dados):
     sala['valor_proposto_temp'] = dados['valor']
     
     som_escolhido = get_som_aleatorio(SONS_TRUCO)
-    val = dados['valor']
+    val = int(dados['valor'])
     if val == 6: som_escolhido = 'seis'
     elif val == 9: som_escolhido = 'nove'
     elif val == 12: som_escolhido = 'doze'
@@ -602,4 +608,5 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
