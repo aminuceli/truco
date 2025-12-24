@@ -31,7 +31,7 @@ static_files = {
 app = socketio.ASGIApp(sio, static_files=static_files)
 
 # Listas de sons (CORRETAS: Sem .mp3)
-SONS_TRUCO = ['truco', 'truco1','seis','nove','doze' ] 
+SONS_TRUCO = ['truco', 'truco1'] 
 SONS_SEIS = ['seis']
 SONS_NOVE = ['nove']
 SONS_DOZE = ['doze']
@@ -419,6 +419,8 @@ async def responder_truco_logica(nome_sala, sid, resposta, dados_extras=None):
         await finalizar_mao(nome_sala, idx_vencedor)
     
     elif resposta == 'AUMENTAR':
+        if 'valor_proposto_temp' in sala:
+            sala['mao'].valor_atual = sala['valor_proposto_temp']
         pedinte_original_idx = sala.get('pedinte_temp')
         repicador_idx = sala['jogadores'].index(sid)
         novo_valor = int(dados_extras.get('novo_valor', 3)) if dados_extras else 0
@@ -458,9 +460,9 @@ async def pedir_truco(sid, dados):
     
     som_escolhido = get_som_aleatorio(SONS_TRUCO)
     val = int(dados['valor'])
-    if val == 6: som_escolhido = 'seis'
-    elif val == 9: som_escolhido = 'nove'
-    elif val == 12: som_escolhido = 'doze'
+    if val == 6: som_escolhido = get_som_aleatorio (SONS_SEIS) = '6'
+    elif val == 9: som_escolhido = get_som_aleatorio (SONS_NOVE) ='9'
+    elif val == 12: som_escolhido = get_som_aleatorio (SONS_DOZE) ='12'
 
     await emitir_som(n, som_escolhido)
   
@@ -608,6 +610,7 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
 
