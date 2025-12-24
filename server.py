@@ -445,8 +445,11 @@ async def responder_truco_logica(nome_sala, sid, resposta, dados_extras=None):
 
 @sio.event
 async def pedir_truco(sid, dados):
-    n = dados['nome_sala']; sala = jogos[n]
+    n = dados['nome_sala']
+    sala = jogos[n]
     ultimos_sinais[sid] = time.time()
+    
+    # Validações
     if sala['estado_jogo'] != 'JOGANDO' or 11 in sala['placar']: return
     idx = sala['jogadores'].index(sid)
     if sala['vez_atual_idx'] != idx: return 
@@ -454,27 +457,38 @@ async def pedir_truco(sid, dados):
         pode, msg = sala['mao'].pode_pedir_aumento(idx)
         if not pode: return 
     except: pass
+    
     sala['estado_jogo'] = 'TRUCO'
     sala['pedinte_temp'] = idx
     sala['valor_proposto_temp'] = dados['valor']
     
-    som_escolhido = get_som_aleatorio(SONS_TRUCO)
-    val = int(dados['valor'])
-    if val == 6: som_escolhido = get_som_aleatorio (SONS_SEIS) = 'seis'
-    elif val == 9: som_escolhido = get_som_aleatorio (SONS_NOVE) ='nove'
-    elif val == 12: som_escolhido = get_som_aleatorio (SONS_DOZE) ='doze'
-
+    # --- BLOCO CORRIGIDO DOS SONS ---
+    # 1. Pega som padrão
+    som_escolhido = get_som_aleatorio(SONS_TRUCO) 
+    
+    # 2. Converte valor
+    val = int(dados['valor']) 
+    
+    # 3. Substitui se for maior (SEM o = 'seis' no final)
+    if val == 6:
+        som_escolhido = get_som_aleatorio(SONS_SEIS)
+    elif val == 9:
+        som_escolhido = get_som_aleatorio(SONS_NOVE)
+    elif val == 12:
+        som_escolhido = get_som_aleatorio(SONS_DOZE)
+        
     await emitir_som(n, som_escolhido)
+    # --------------------------------
   
     prox = (idx + 1) % sala['max_jogadores']
     sid_op = sala['jogadores'][prox]
     nome = sala['jogadores_nomes'][idx]
+    
     if sid_op.startswith('BOT'): 
         asyncio.create_task(bot_responder_truco(n, prox, dados['valor']))
     else: 
         await sio.emit('receber_pedido_truco', {'valor': dados['valor'], 'quem_pediu': nome}, to=sid_op)
         await sio.emit('aguardando_truco', {}, to=sid)
-
 @sio.event
 async def responder_truco(sid, dados): 
     ultimos_sinais[sid] = time.time()
@@ -610,6 +624,7 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
 
