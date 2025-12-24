@@ -2,8 +2,8 @@ import socketio
 import asyncio
 import random
 import time
-import uvicorn # Adicionado
-import os # Adicionado para pegar a porta do Render
+import uvicorn
+import os
 from truco_core import TrucoGame, Mao, Carta
 
 # ==============================================================================
@@ -51,7 +51,7 @@ TEMPO_LIMITE_AFK = 60
 async def loop_monitoramento_afk():
     print("[SISTEMA] Monitor de inatividade iniciado.")
     while True:
-        await asyncio.sleep(5) # Aumentei para 5s para economizar processamento
+        await asyncio.sleep(5)
         agora = time.time()
         sids = list(ultimos_sinais.keys())
         for sid in sids:
@@ -365,7 +365,7 @@ async def responder_truco_logica(nome_sala, sid, resposta, dados_extras=None):
         if pedinte_idx is not None:
             sala['mao'].dono_atual_da_aposta = pedinte_idx
             
-        sala['estado_jogo'] = 'JOGANDO'
+        sala['estado_jogo'] = 'JOGANDO' # Garante que volta a jogar mesmo no 12
         await notificar_info_jogo(nome_sala)
         await atualizar_turnos(nome_sala) 
         
@@ -418,6 +418,7 @@ async def pedir_truco(sid, dados):
     elif dados['valor'] == 9: som_escolhido = get_som_aleatorio(SONS_NOVE) or som_escolhido
     elif dados['valor'] == 12: som_escolhido = get_som_aleatorio(SONS_DOZE) or som_escolhido
 
+    # CORREÇÃO: Força o som a tocar para todos na sala
     await emitir_som(n, som_escolhido)
   
     prox = (idx + 1) % sala['max_jogadores']
