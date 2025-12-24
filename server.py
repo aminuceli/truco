@@ -9,7 +9,9 @@ from truco_core import TrucoGame, Mao, Carta
 # ==============================================================================
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 
-# Lista de arquivos que o site precisa carregar
+# --- Adicionar/Substituir no topo do server.py ---
+
+# Atualize a lista de arquivos para incluir os novos sons
 static_files = {
     '/': 'index.html',
     '/win.mp3': 'win.mp3',
@@ -17,16 +19,32 @@ static_files = {
     '/shuffle.mp3': 'shuffle.mp3',
     '/card.mp3': 'card.mp3',
     '/truco.mp3': 'truco.mp3',
-    '/correr.mp3': 'correr.mp3'
+    '/truco1.mp3': 'truco1.mp3', # Novo
+    '/seis.mp3': 'seis.mp3',     # Novo
+    '/nove.mp3': 'nove.mp3',     # Novo
+    '/doze.mp3': 'doze.mp3',     # Novo
+    '/correr.mp3': 'correr.mp3',
+    '/correr1.mp3': 'correr1.mp3' # Novo
 }
 
 app = socketio.ASGIApp(sio, static_files=static_files)
 
+# Listas de sons para sorteio
+SONS_TRUCO = ['truco.mp3', 'truco1.mp3'] 
+SONS_SEIS = ['seis.mp3']
+SONS_NOVE = ['nove.mp3']
+SONS_DOZE = ['doze.mp3']
+SONS_CORRER = ['correr.mp3', 'correr1.mp3']
+
+def get_som_aleatorio(lista):
+    if not lista: return None
+    return random.choice(lista)
+
 jogos = {}
 ultimos_sinais = {} 
-TEMPO_LIMITE_AFK = 30 
+TEMPO_LIMITE_AFK = 60 
 
-# ==============================================================================
+# carregarSons==============================================================================
 # 1. MONITORAMENTO E UTILITÁRIOS
 # ==============================================================================
 
@@ -88,7 +106,8 @@ async def notificar_info_jogo(nome_sala):
         await sio.emit('info_jogo', {
             'placar': placar_vis, 'sets': sets_vis,
             'valor': sala['mao'].valor_atual, 'dono_aposta': dono_para_enviar,
-            'nomes': sala['jogadores_nomes'], 'seu_indice': i
+            'nomes': sala['jogadores_nomes'], 'seu_indice': i,
+            'rodadas_hist': sala['mao'].rodadas  # <--- LINHA NOVA AQUI
         }, to=p)
 
 async def atualizar_turnos(nome_sala):
@@ -145,51 +164,57 @@ async def processar_jogada_carta(nome_sala, sid, carta_obj):
         await atualizar_turnos(nome_sala) # Bloqueia UI
         await asyncio.sleep(1.5)
         
-        # Calcular vencedor da rodada
-        maior = -1; idx_venc = -1
-        try:
-            for item in sala['mesa_cartas']:
-                sid_j, c = item
-                f = sala['jogo'].calcular_forca(c)
-                if f > maior:
-                    maior = f
-                    if sid_j in sala['jogadores']:
-                        idx_venc = sala['jogadores'].index(sid_j)
-                elif f == maior: pass 
-        except Exception as e:
-            print(f"Erro calculo vencedor: {e}"); idx_venc = 0
+        # --- CÁLCULO DO VENCEDOR ---
+        maior_forca = -1
+        idx_venc = -1
+        empate = False
 
-        time_vencedor_rodada = idx_venc % 2
-        sala['mao'].rodadas.append(time_vencedor_rodada)
+        for item in sala['mesa_cartas']:
+            sid_j, c = item
+            f = sala['jogo'].calcular_forca(c)
+            
+            if f > maior_forca:
+                maior_forca = f
+                if sid_j in sala['jogadores']:
+                    idx_venc = sala['jogadores'].index(sid_j)
+                empate = False # Novo líder
+            elif f == maior_forca:
+                empate = True # Empatou com o maior atual
         
-        # Lógica Melhor de 3
-        vitorias_t0 = sala['mao'].rodadas.count(0)
-        vitorias_t1 = sala['mao'].rodadas.count(1)
+        # Define o resultado da rodada
+        if empate:
+            sala['mao'].rodadas.append(-1) # -1 indica empate
+            vencedor_txt = "EMPATE (Canga)"
+        else:
+            time_vencedor_rodada = idx_venc % 2
+            sala['mao'].rodadas.append(time_vencedor_rodada)
+            vencedor_txt = f"Time {time_vencedor_rodada}"
+
+        # Chama a verificação do Core
+        sala['jogo'].verificar_fim_mao() 
         
-        vencedor_mao = None
-        if vitorias_t0 >= 2: vencedor_mao = "Time 0"
-        elif vitorias_t1 >= 2: vencedor_mao = "Time 1"
-        elif len(sala['mao'].rodadas) == 3:
-             vencedor_mao = f"Time {time_vencedor_rodada}" # 3ª rodada quem ganha leva
-        
-        sala['mao'].vencedor_mao = vencedor_mao
-        
+        # Notifica clientes sobre quem ganhou a rodada
         for p in sala['jogadores']:
             if not p.startswith('BOT'):
-                await sio.emit('resultado_rodada', {'vencedor': f"Time {time_vencedor_rodada}"}, to=p)
+                await sio.emit('resultado_rodada', {'vencedor': vencedor_txt}, to=p)
         
-        # LIMPEZA IMPORTANTE ANTES DE DECIDIR FLUXO
+        # LIMPEZA IMPORTANTE
         sala['mesa_cartas'] = []
         await enviar_estado_mesa(nome_sala)
         
         if not sala['mao'].vencedor_mao:
             # Continua na mesma mão
-            sala['vez_atual_idx'] = idx_venc
+            if not empate:
+                sala['vez_atual_idx'] = idx_venc
+            else:
+                # Regra simples para canga: segue o jogo
+                sala['vez_atual_idx'] = (sala['jogador_inicial_mao'] + len(sala['mao'].rodadas)) % num_p 
+                if idx_venc != -1: sala['vez_atual_idx'] = idx_venc
+            
             await atualizar_turnos(nome_sala)
         else:
-            # Fim da mão (alguém ganhou 2 rodadas)
+            # Fim da mão
             await finalizar_mao(nome_sala, sala['mao'].vencedor_mao)
-
 async def iniciar_nova_mao(nome_sala):
     if nome_sala not in jogos: return
     sala = jogos[nome_sala]
@@ -236,10 +261,30 @@ async def iniciar_nova_mao(nome_sala):
             'animar': True, 'blind': blind, 'seu_indice': i, 'modo_jogo': num_p
         }, to=p_sid)
         
+        # Lógica da Mão de 11 Atualizada
         if time_11 != -1 and (i % 2) == time_11:
             idx_parc = (i + 2) % num_p
-            cp = [{'valor': c.valor, 'naipe': c.naipe} for c in maos[idx_parc]]
-            await sio.emit('decisao_mao_11', {'cartas_parceiro': cp}, to=p_sid)
+            
+            # Define quais cartas mostrar e o título
+            cartas_visualizar = []
+            msg_titulo = ""
+            
+            # Se for modo 1v1 (2 jogadores), mostra as PRÓPRIAS cartas
+            if num_p == 2:
+                cartas_visualizar = [{'valor': c.valor, 'naipe': c.naipe} for c in maos[i]]
+                msg_titulo = "JOGAR A MÃO DE 11?"
+            else:
+                # Se for 2v2, mostra as cartas do PARCEIRO
+                cartas_visualizar = [{'valor': c.valor, 'naipe': c.naipe} for c in maos[idx_parc]]
+                msg_titulo = "CARTAS DO PARCEIRO"
+
+            vira_json = {'valor': vira.valor, 'naipe': vira.naipe}
+
+            await sio.emit('decisao_mao_11', {
+                'cartas_parceiro': cartas_visualizar, 
+                'vira': vira_json,     # <--- AGORA ENVIAMOS O VIRA
+                'titulo': msg_titulo   # <--- E O TÍTULO CORRETO
+            }, to=p_sid)
 
     if sala['estado_jogo'] == 'MAO_DE_11':
         jogs_decisao = [j for k, j in enumerate(sala['jogadores']) if k % 2 == time_11]
@@ -354,6 +399,9 @@ async def responder_truco_logica(nome_sala, sid, resposta, dados_extras=None):
                 await sio.emit('truco_respondido', {'msg': f'ACEITOU! VALE {sala["mao"].valor_atual}'}, to=p)
 
     elif resposta == 'CORRER':
+        # ADICIONE ESTA LINHA:
+        await emitir_som(nome_sala, get_som_aleatorio(SONS_CORRER))
+        
         idx = sala['jogadores'].index(sid)
         time_venc = 1 if (idx % 2) == 0 else 0
         await finalizar_mao(nome_sala, f"Time {time_venc}")
@@ -390,7 +438,19 @@ async def pedir_truco(sid, dados):
     sala['estado_jogo'] = 'TRUCO'
     sala['pedinte_temp'] = idx
     sala['valor_proposto_temp'] = dados['valor']
-    await emitir_som(n, 'truco')
+    # --- INICIO DO BLOCO NOVO ---
+    som_escolhido = get_som_aleatorio(SONS_TRUCO)
+    
+    # Se o valor for maior, tenta pegar o som específico
+    if dados['valor'] == 6: 
+        som_escolhido = get_som_aleatorio(SONS_SEIS) or som_escolhido
+    elif dados['valor'] == 9: 
+        som_escolhido = get_som_aleatorio(SONS_NOVE) or som_escolhido
+    elif dados['valor'] == 12: 
+        som_escolhido = get_som_aleatorio(SONS_DOZE) or som_escolhido
+
+    await emitir_som(n, som_escolhido)
+  
     prox = (idx + 1) % sala['max_jogadores']
     sid_op = sala['jogadores'][prox]
     nome = sala['jogadores_nomes'][idx]
