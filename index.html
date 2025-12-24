@@ -20,8 +20,6 @@
         /* =========================================
            MESA DE JOGO E ELEMENTOS CENTRAIS
            ========================================= */
-        /* --- Adicionar no CSS --- */
-
         .container-bolinhas {
             display: flex;
             gap: 5px;
@@ -29,19 +27,17 @@
             justify-content: center;
         }
 
-
         .bolinha {
             width: 12px;
             height: 12px;
-            background-color: #555; /* Cor cinza (vazio) */
+            background-color: #555; 
             border-radius: 50%;
             border: 1px solid white;
             box-shadow: 0 0 2px black;
         }
-        .bolinha.venceu-nos { background-color: #2196f3; box-shadow: 0 0 5px #2196f3; } /* Azul para Nós */
-        .bolinha.venceu-eles { background-color: #f44336; box-shadow: 0 0 5px #f44336; } /* Vermelho para Eles */
-        .bolinha.empate { background-color: #ffeb3b; } /* Amarelo para Empate (opcional) */
-
+        .bolinha.venceu-nos { background-color: #2196f3; box-shadow: 0 0 5px #2196f3; } 
+        .bolinha.venceu-eles { background-color: #f44336; box-shadow: 0 0 5px #f44336; } 
+        .bolinha.empate { background-color: #ffeb3b; } 
 
         .mesa { 
             width: 100vw; 
@@ -73,29 +69,21 @@
             top: 50%; 
             left: 50%; 
             transform: translate(-50%, -50%); 
-            z-index: 10; /* Garante que fique EM CIMA da manilha */
+            z-index: 10; 
             box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
         }
 
-        /* Classe de animação de tremedeira para o baralho */
-        .embaralhando {
-            animation: shakeDeck 0.8s ease-in-out;
-        }
+        .embaralhando { animation: shakeDeck 0.8s ease-in-out; }
+        
         .vira-container { 
             position: absolute; 
             top: 50%; 
             left: 50%; 
-            /* Centraliza, rotaciona 90 graus e empurra 50px para a direita para aparecer a face */
             transform: translate(-50%, -50%) rotate(90deg) translateY(-50px); 
-            z-index: 5; /* Z-index menor que o baralho */
+            z-index: 5; 
             transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        /* =========================================
-           NOVAS ANIMAÇÕES (KEYFRAMES)
-           ========================================= */
-
-        /* Efeito de embaralhar (tremedeira) */
         @keyframes shakeDeck {
             0% { transform: translate(-50%, -50%) rotate(0deg); }
             20% { transform: translate(-52%, -48%) rotate(-5deg); }
@@ -105,42 +93,19 @@
             100% { transform: translate(-50%, -50%) rotate(0deg); }
         }
 
-        /* Efeito da manilha saindo de baixo do baralho */
         @keyframes slideOutVira {
-            0% { 
-                transform: translate(-50%, -50%) rotate(0deg); /* Escondida embaixo */
-                opacity: 0;
-            }
-            50% {
-                opacity: 1;
-            }
-            100% { 
-                /* Posição final: Girada e exposta */
-                transform: translate(-50%, -50%) rotate(90deg) translateY(-50px); 
-            }
+            0% { transform: translate(-50%, -50%) rotate(0deg); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translate(-50%, -50%) rotate(90deg) translateY(-50px); }
         }
 
-        /* Efeito das cartas sendo distribuídas (voando do centro) */
         @keyframes dealCard {
-            from {
-                opacity: 0;
-                transform: translateY(-200px) scale(0.1); /* Começa pequena e longe */
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
+            from { opacity: 0; transform: translateY(-200px) scale(0.1); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
         }
 
-        /* Classe auxiliar para aplicar nas cartas do jogador */
-        .carta-distribuida {
-            animation: dealCard 0.6s ease-out forwards;
-        }
-        
-        /* Classe para animar entrada da manilha */
-        .vira-anim-entrada {
-            animation: slideOutVira 0.8s forwards;
-        }
+        .carta-distribuida { animation: dealCard 0.6s ease-out forwards; }
+        .vira-anim-entrada { animation: slideOutVira 0.8s forwards; }
 
         #msg-centro { 
             position: absolute; 
@@ -171,9 +136,6 @@
             z-index: 60; 
         }
 
-        /* =========================================
-           POSIÇÕES DOS JOGADORES NA MESA
-           ========================================= */
         .posicao-mesa { 
             position: absolute; 
             display: flex; 
@@ -239,9 +201,6 @@
             height: 140px; 
         }
 
-        /* =========================================
-           SLOTS DE JOGADA (ONDE A CARTA CAI)
-           ========================================= */
         .slot-jogada { 
             position: absolute; 
             width: 80px; 
@@ -252,36 +211,31 @@
             transition: all 0.3s; 
             z-index: 15; 
         }
+
         .placar-sets {
             position: absolute;
-            top: 15px;               /* Encostado no topo */
-            left: 50%;               /* Centralizado horizontalmente */
+            top: 15px;               
+            left: 50%;               
             transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.85);
             padding: 8px 30px;
-            border-radius: 0 0 15px 15px; /* Arredondado só embaixo */
+            border-radius: 0 0 15px 15px; 
             font-weight: bold;
             border: 2px solid #555;
-            border-top: none;        /* Sem borda no teto */
+            border-top: none;        
             font-size: 20px;
-            color: #00e676;          /* Verde neon */
+            color: #00e676;          
             z-index: 60;
             box-shadow: 0 4px 15px rgba(0,0,0,0.6);
         }
 
-        /* Oculta o "VALENDO 1", mas mantém ele no código pro jogo não travar */
-        .valor-jogo { 
-            display: none !important; 
-        }
+        .valor-jogo { display: none !important; }
         
         #slot-eu { bottom: 20px; left: 50%; transform: translateX(-50%); }
         #slot-parceiro { top: 20px; left: 50%; transform: translateX(-50%); }
         #slot-esq { left: 1px; top: 50%; transform: translateY(-80%) rotate(90deg); }
         #slot-dir { right: 1px; top: 50%; transform: translateY(-30%) rotate(-90deg); }
 
-        /* =========================================
-           ESTILOS DAS CARTAS
-           ========================================= */
         .carta { 
             width: 80px; 
             height: 120px; 
@@ -317,9 +271,6 @@
         .naipe-centro { font-size: 40px; align-self: center; position: absolute; top: 35%; }
         .valor-base { align-self: flex-end; transform: rotate(180deg); }
 
-        /* =========================================
-           PLACAR E VALOR
-           ========================================= */
         .placar { 
             position: absolute; 
             top: 20px; 
@@ -333,11 +284,6 @@
             z-index: 60; 
         }
 
-        
-
-        /* =========================================
-           BOTÕES GERAIS E LOBBY
-           ========================================= */
         #btn-truco { 
             position: absolute; 
             bottom: 30px; 
@@ -397,9 +343,6 @@
             font-weight: bold; 
         }
 
-        /* =========================================
-           TELAS MODAIS (LOGIN, TRUCO, MÃO DE 11)
-           ========================================= */
         #login-screen, #game-over-screen, #modal-truco, #modal-mao-11 { 
             position: fixed; 
             top: 0; 
@@ -441,7 +384,6 @@
             border-bottom: 1px solid #444; 
         }
 
-        /* Modal Truco */
         .container-botoes-truco { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
         .btn-resposta { padding: 15px 30px; font-size: 20px; border: none; border-radius: 10px; cursor: pointer; color: white; font-weight: bold; transition: transform 0.1s; }
         .btn-resposta:active { transform: scale(0.95); }
@@ -450,15 +392,11 @@
         .btn-aumentar { background: #ff9800; border-bottom: 5px solid #ef6c00; }
         .titulo-modal { font-size: 50px; color: yellow; margin-bottom: 30px; text-align: center; }
 
-        /* Game Over */
         .titulo-fim { font-size: 80px; font-weight: 900; color: white; margin-bottom: 10px; text-align: center; }
         .vitoria { color: #4caf50; text-shadow: 0 0 30px lime; } 
         .derrota { color: #f44336; text-shadow: 0 0 30px red; }
         .btn-restart { padding: 15px 40px; font-size: 20px; background: white; color: black; border: none; cursor: pointer; border-radius: 50px; font-weight: bold; margin-top: 30px; }
 
-        /* =========================================
-           CHAT E EMOJIS
-           ========================================= */
         #btn-abrir-chat { 
             position: absolute; 
             bottom: 30px; 
@@ -516,60 +454,25 @@
         .balao-dir { right: 160px; top: 50%; transform: translateY(-50%); } .balao-dir::after { border-color: transparent transparent transparent white; left: 100%; top: 50%; margin-top: -10px; }
         @keyframes popIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
-        /* =========================================
-           AJUSTES PARA CELULAR (MOBILE)
-           ========================================= */
         @media (max-width: 600px) {
-            /* Diminui a borda da mesa para ganhar espaço */
             .mesa { border-width: 5px; }
-
-            /* TRUQUE MÁGICO: Sobe a mesa e diminui para dar espaço para SUAS cartas */
-            .centro-absoluto {
-                top: 40%; /* Joga a mesa mais para cima */
-                transform: translate(-50%, -50%) scale(0.65); /* Reduz o centro */
-                width: 100%;
-            }
-
-            /* SUAS CARTAS - BEM GRANDES E LARGAS */
-            #pos-eu { 
-                width: 100% !important; 
-                max-width: 100%; 
-                padding: 0 5px; 
-                bottom: 10px; 
-                height: 160px; /* Mais alto para caber a carta grande */
-            }
+            .centro-absoluto { top: 40%; transform: translate(-50%, -50%) scale(0.65); width: 100%; }
+            #pos-eu { width: 100% !important; max-width: 100%; padding: 0 5px; bottom: 10px; height: 160px; }
             #meu-nome-display { font-size: 14px; margin-bottom: 2px; }
-            
-            /* Aumenta especificamente as SUAS cartas */
-            #pos-eu .carta {
-                width: 100px;  /* BEM GRANDE */
-                height: 150px; 
-                margin: 0 -10px; /* Sobrepõe um pouquinho se precisar */
-            }
-
-            /* CARTAS DOS OUTROS (MANTÉM PEQUENAS PARA CABER) */
+            #pos-eu .carta { width: 100px; height: 150px; margin: 0 -10px; }
             .carta { width: 60px; height: 90px; }
-
-            /* Parceiro e Rivais mais compactos */
             #pos-parceiro { transform: translateX(-50%) scale(0.8); top: 5px; }
             #pos-rival-esq { left: -150px; transform: translateY(-50%) rotate(90deg) scale(0.75); }
             #pos-rival-dir { right: -150px; transform: translateY(-50%) rotate(-90deg) scale(0.75); }
-
-            /* Botão de Truco e Chat ajustados para cima das cartas */
             #btn-truco { width: 80px; height: 80px; font-size: 14px; bottom: 170px; right: 10px; border-width: 3px; }
             #btn-abrir-chat { bottom: 170px; right: 100px; width: 45px; height: 45px; font-size: 20px; border-width: 2px; }
             #menu-chat { width: 280px; bottom: 220px; right: 10px; }
-            
             #status-vez { bottom: 250px; font-size: 18px; }
-
-            /* Ajustes nos Textos dos Modals (Login e Truco) */
             #login-screen h1 { font-size: 40px !important; }
             #login-screen input { width: 80% !important; }
             #titulo-fim { font-size: 40px; }
             .titulo-modal { font-size: 35px; }
             .btn-resposta { padding: 10px 15px; font-size: 16px; margin: 5px; }
-            
-            /* Placar menor */
             .placar { font-size: 14px; padding: 8px; top: 10px; left: 10px; }
             .placar-sets { font-size: 16px; padding: 5px 15px;left: 10px; transform: none;top: 50px; }
             #btn-sair { padding: 5px 10px; font-size: 12px; top: 10px; right: 10px; }
@@ -644,6 +547,7 @@
             <div class="bolinha"></div>
         </div>
         <div>NÓS: <span id="pontos-nos">0</span> | ELES: <span id="pontos-eles">0</span></div>
+        <div id="placar-sets-display" style="font-size: 14px; margin-top: 5px; color: #aaa;">Sets: <span id="sets-nos">0</span> x <span id="sets-eles">0</span></div>
         </div>  
         <div class="valor-jogo">VALENDO: <span id="valor-atual">1</span></div>
         
@@ -679,13 +583,12 @@
     </div>
 
     <script>
-        // Configuração para forçar WebSocket e evitar erros no Render
         const socket = io();
         let minhaSala = ""; let meuIndice = -1; let modoAtual = 4; let valorAtual = 1; let propostaValor = 1;
         let donoDaAposta = null;
         let placarAtual = [0, 0];
         let sons = {};
-        
+
         function carregarSons() {
             const lista = ['card', 'shuffle', 'win', 'lose', 
                 'truco', 'truco1', 
@@ -787,14 +690,14 @@
 
         // --- LÓGICA DO JOGO ---
 
-        
         socket.on('info_jogo', (d) => {
             placarAtual = d.placar; 
             document.getElementById('pontos-nos').innerText = d.placar[0];
             document.getElementById('pontos-eles').innerText = d.placar[1];
+            
             const sets = d.sets || [0, 0];
-            document.getElementById('sets-nos').innerText = sets[0];
-            document.getElementById('sets-eles').innerText = sets[1];
+            if(document.getElementById('sets-nos')) document.getElementById('sets-nos').innerText = sets[0];
+            if(document.getElementById('sets-eles')) document.getElementById('sets-eles').innerText = sets[1];
            
             valorAtual = d.valor;
             donoDaAposta = d.dono_aposta;
@@ -802,7 +705,6 @@
             document.getElementById('valor-atual').innerText = d.valor;
             atualizarBotaoTrucoPrincipal(d.valor);
             
-            // --- LOOP DE NOMES CORRIGIDO ---
             d.nomes.forEach((nome, idx) => {
                 let diff;
                 if(modoAtual === 4) {
@@ -812,25 +714,13 @@
                     else diff = 2; 
                 }
                 
-                // ESTAS LINHAS DEVEM FICAR AQUI DENTRO (DENTRO DAS CHAVES DO LOOP)
                 if(diff === 0) document.getElementById('meu-nome-display').innerText = nome;
                 else if(diff === 1) document.querySelector('#pos-rival-dir .nome-player').innerText = nome;
                 else if(diff === 2) document.querySelector('#pos-parceiro .nome-player').innerText = nome;
                 else if(diff === 3) document.querySelector('#pos-rival-esq .nome-player').innerText = nome;
-            }); // <--- O LOOP FECHA AQUI
+            }); 
 
-            // Atualiza as bolinhas no final
             if(d.rodadas_hist) atualizarBolinhas(d.rodadas_hist);
-        });       
-                
-            // Atualiza as bolinhas no final
-            if(d.rodadas_hist) atualizarBolinhas(d.rodadas_hist);
-        });    
-                if(diff === 0) document.getElementById('meu-nome-display').innerText = nome;
-                else if(diff === 1) document.querySelector('#pos-rival-dir .nome-player').innerText = nome;
-                else if(diff === 2) document.querySelector('#pos-parceiro .nome-player').innerText = nome;
-                else if(diff === 3) document.querySelector('#pos-rival-esq .nome-player').innerText = nome;
-            });
         });
 
         function toggleChat() { const menu = document.getElementById('menu-chat'); menu.style.display = menu.style.display === 'grid' ? 'none' : 'grid'; }
@@ -961,8 +851,6 @@
                 document.getElementById(slot).appendChild(criarCartaHTML(c, false));
             });
         });
-
-        // --- CORREÇÃO DE SOCKETS E HANDLERS ---
         
         socket.on('status_vez', (d) => {
             const s = document.getElementById('status-vez');
@@ -972,14 +860,11 @@
                 s.innerText = "SUA VEZ!";
                 s.style.color = "#4caf50";
                 m.classList.remove('bloqueado');
-                
-                // Habilita ou desabilita botão baseado na regra
                 atualizarBotaoTrucoPrincipal(valorAtual);
             } else {
                 s.innerText = "AGUARDANDO...";
                 s.style.color = "#ffeb3b";
                 m.classList.add('bloqueado');
-                // Garante que botão fica bloqueado visualmente
                 atualizarBotaoTrucoPrincipal(valorAtual); 
             }
         });
@@ -1042,7 +927,6 @@
             const btn = document.getElementById('btn-truco');
             const interfaceBloqueada = document.getElementById('pos-eu').classList.contains('bloqueado');
             
-            // Define o texto
             if (v === 1) btn.innerText = "TRUCO"; 
             else if (v === 3) btn.innerText = "SEIS"; 
             else if (v === 6) btn.innerText = "NOVE"; 
@@ -1054,7 +938,6 @@
                 btn.style.display = 'none';
             } else {
                 btn.style.display = 'block';
-                // Lógica combinada: Se não é minha vez OU eu sou o dono da aposta -> Bloqueia
                 if (donoDaAposta === meuIndice || interfaceBloqueada) {
                     btn.disabled = true;
                     btn.style.opacity = "0.5";
@@ -1068,12 +951,4 @@
         }
     </script>
 </body>
-
 </html>
-
-
-
-
-
-
-
