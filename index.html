@@ -20,6 +20,29 @@
         /* =========================================
            MESA DE JOGO E ELEMENTOS CENTRAIS
            ========================================= */
+        /* --- Adicionar no CSS --- */
+
+        .container-bolinhas {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 5px;
+            justify-content: center;
+        }
+
+
+        .bolinha {
+            width: 12px;
+            height: 12px;
+            background-color: #555; /* Cor cinza (vazio) */
+            border-radius: 50%;
+            border: 1px solid white;
+            box-shadow: 0 0 2px black;
+        }
+        .bolinha.venceu-nos { background-color: #2196f3; box-shadow: 0 0 5px #2196f3; } /* Azul para Nós */
+        .bolinha.venceu-eles { background-color: #f44336; box-shadow: 0 0 5px #f44336; } /* Vermelho para Eles */
+        .bolinha.empate { background-color: #ffeb3b; } /* Amarelo para Empate (opcional) */
+
+
         .mesa { 
             width: 100vw; 
             height: 100vh; 
@@ -557,9 +580,12 @@
 
     <div id="modal-mao-11">
         <h1 style="color: yellow; font-size: 30px; text-align:center;">MÃO DE 11!</h1>
-        <p style="color: white; font-size: 18px; margin-bottom: 20px;">Cartas do seu parceiro:</p>
-        <div id="cartas-parceiro-view" style="transform: scale(0.8);"></div>
-        <div style="display:flex; gap:10px; margin-top: 30px;">
+        
+        <div style="margin: 15px 0; text-align: center;">
+            <p style="color: #ddd; font-size: 14px; margin-bottom: 5px;">Vira da Rodada:</p>
+            <div id="vira-mao-11-view" style="display: flex; justify-content: center; transform: scale(0.9);"></div>
+        </div>
+        <p id="msg-mao-11" style="color: white; font-size: 18px; margin-bottom: 20px;">Cartas:</p> <div id="cartas-parceiro-view" style="transform: scale(0.8); display: flex; gap: 5px;"></div> <div style="display:flex; gap:10px; margin-top: 30px;">
             <button class="btn-resposta btn-aceitar" onclick="responderMao11('JOGAR')">JOGAR (3 Pts)</button>
             <button class="btn-resposta btn-correr" onclick="responderMao11('CORRER')">CORRER (1 Pt)</button>
         </div>
@@ -611,10 +637,14 @@
 
     <div class="mesa" id="mesa-jogo" style="display:none;">
         <button id="btn-sair" onclick="sairDoJogo()">SAIR ✖</button>
-        
-        <div class="placar">NÓS: <span id="pontos-nos">0</span> | ELES: <span id="pontos-eles">0</span></div>
-
-<div class="placar-sets">SETS: <span id="sets-nos">0</span> x <span id="sets-eles">0</span></div>
+        <div class="placar">
+             <div class="container-bolinhas" id="bolinhas-display">
+            <div class="bolinha"></div>
+             <div class="bolinha"></div>
+            <div class="bolinha"></div>
+        </div>
+        <div>NÓS: <span id="pontos-nos">0</span> | ELES: <span id="pontos-eles">0</span></div>
+        </div>  
         <div class="valor-jogo">VALENDO: <span id="valor-atual">1</span></div>
         
         <div id="pos-parceiro" class="posicao-mesa"><div class="nome-player">Parceiro</div><div class="cartas-container"></div></div>
@@ -656,7 +686,10 @@
         let sons = {};
 
         function carregarSons() {
-            const lista = ['card', 'truco', 'shuffle', 'win', 'lose', 'correr'];
+            const lista = ['card', 'shuffle', 'win', 'lose', 
+                'truco', 'truco1', 
+                'seis', 'nove', 'doze', 
+                'correr', 'correr1'];
             lista.forEach(s => {
                 sons[s] = new Audio(`${s}.mp3`);
                 sons[s].volume = 0.5;
@@ -685,6 +718,31 @@
                 container.appendChild(div);
             });
         });
+
+        // --- Função nova para as bolinhas ---
+        function atualizarBolinhas(rodadas) {
+            const container = document.getElementById('bolinhas-display');
+            if(!container) return;
+            const divs = container.getElementsByClassName('bolinha');
+            
+            // 1. Limpa todas (deixa cinza)
+            for(let d of divs) d.className = 'bolinha';
+
+            if(!rodadas) return;
+
+            // 2. Pinta conforme quem ganhou
+            rodadas.forEach((ganhador, i) => {
+                if(i < 3) {
+                    if (ganhador === -1) {
+                        divs[i].classList.add('empate'); // Amarelo
+                    } else {
+                        const meuTime = meuIndice % 2; 
+                        if (ganhador === meuTime) divs[i].classList.add('venceu-nos'); // Azul
+                        else divs[i].classList.add('venceu-eles'); // Vermelho
+                    }
+                }
+            });
+        }
 
         function selecionarModo(n) {
             modoAtual = n;
@@ -728,6 +786,7 @@
 
         // --- LÓGICA DO JOGO ---
 
+        
         socket.on('info_jogo', (d) => {
             placarAtual = d.placar; 
             document.getElementById('pontos-nos').innerText = d.placar[0];
@@ -742,11 +801,30 @@
             document.getElementById('valor-atual').innerText = d.valor;
             atualizarBotaoTrucoPrincipal(d.valor);
             
+            // --- LOOP DE NOMES CORRIGIDO ---
             d.nomes.forEach((nome, idx) => {
                 let diff;
-                if(modoAtual === 4) diff = (idx - d.seu_indice + 4) % 4;
-                else { if (idx === d.seu_indice) diff = 0; else diff = 2; }
+                if(modoAtual === 4) {
+                    diff = (idx - d.seu_indice + 4) % 4;
+                } else { 
+                    if (idx === d.seu_indice) diff = 0; 
+                    else diff = 2; 
+                }
                 
+                // ESTAS LINHAS DEVEM FICAR AQUI DENTRO (DENTRO DAS CHAVES DO LOOP)
+                if(diff === 0) document.getElementById('meu-nome-display').innerText = nome;
+                else if(diff === 1) document.querySelector('#pos-rival-dir .nome-player').innerText = nome;
+                else if(diff === 2) document.querySelector('#pos-parceiro .nome-player').innerText = nome;
+                else if(diff === 3) document.querySelector('#pos-rival-esq .nome-player').innerText = nome;
+            }); // <--- O LOOP FECHA AQUI
+
+            // Atualiza as bolinhas no final
+            if(d.rodadas_hist) atualizarBolinhas(d.rodadas_hist);
+        });       
+                
+            // Atualiza as bolinhas no final
+            if(d.rodadas_hist) atualizarBolinhas(d.rodadas_hist);
+        });    
                 if(diff === 0) document.getElementById('meu-nome-display').innerText = nome;
                 else if(diff === 1) document.querySelector('#pos-rival-dir .nome-player').innerText = nome;
                 else if(diff === 2) document.querySelector('#pos-parceiro .nome-player').innerText = nome;
@@ -794,6 +872,7 @@
 
         socket.on('receber_mao', (d) => {
             // 1. Toca som e anima o baralho
+            atualizarBolinhas([]);
             if(sons['shuffle']) sons['shuffle'].play().catch(e=>{});
             
             const baralhoEl = document.querySelector('.baralho-mesa');
@@ -846,8 +925,24 @@
         });
 
         socket.on('decisao_mao_11', (d) => {
-            const container = document.getElementById('cartas-parceiro-view'); container.innerHTML = '';
+            // 1. Atualiza o texto (Ex: "Cartas do Parceiro" ou "Jogar a mão?")
+            const tituloEl = document.getElementById('msg-mao-11');
+            if(tituloEl) tituloEl.innerText = d.titulo || "Cartas:";
+
+            // 2. Renderiza as cartas (do parceiro ou suas)
+            const container = document.getElementById('cartas-parceiro-view'); 
+            container.innerHTML = '';
             d.cartas_parceiro.forEach(c => container.appendChild(criarCartaHTML(c, false)));
+            
+            // 3. Renderiza o Vira (NOVO)
+            const containerVira = document.getElementById('vira-mao-11-view');
+            if(containerVira) {
+                containerVira.innerHTML = '';
+                // Cria a carta do Vira visualmente (sem ser clicável)
+                containerVira.appendChild(criarCartaHTML(d.vira, false));
+            }
+
+            // Exibe o modal
             document.getElementById('modal-mao-11').style.display = 'flex';
         });
         function responderMao11(resp) {
