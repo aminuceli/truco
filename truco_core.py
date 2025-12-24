@@ -1,11 +1,6 @@
 import random
 
-# ==============================================================================
-# CONFIGURAÇÕES DE FORÇA E NAIPES
-# ==============================================================================
-
-# Valores dos naipes para Manilhas (Do mais fraco para o mais forte)
-# Ouros = 1, Espadas = 2, Copas = 3, Paus (Zap) = 4
+# Valores das cartas para manilha (Zap, Copas, Espadilha, Ouros)
 NAIPES = {
     'Ouros': 1,
     'Espadas': 2,
@@ -13,7 +8,7 @@ NAIPES = {
     'Paus': 4
 }
 
-# Ordem de força das cartas comuns (do menor para o maior)
+# Ordem de força (do menor para o maior, sem manilha)
 FORCA_PADRAO = ['4', '5', '6', '7', 'Q', 'J', 'K', 'A', '2', '3']
 
 class Carta:
@@ -32,28 +27,21 @@ class TrucoGame:
         self.resetar_baralho()
 
     def resetar_baralho(self):
-        """Recria o baralho e embaralha"""
-        # Cria todas as combinações de cartas
+        """Cria um baralho limpo e embaralhado"""
         valores = ['4', '5', '6', '7', 'Q', 'J', 'K', 'A', '2', '3']
         naipes_lista = list(NAIPES.keys())
         self.baralho = [Carta(v, n) for v in valores for n in naipes_lista]
         random.shuffle(self.baralho)
 
     def dar_cartas(self, num_jogadores):
-        """
-        Distribui 3 cartas para cada jogador.
-        Retorna: (lista de maos, carta_vira)
-        """
-        # Verifica se tem carta suficiente, se não, reembaralha
+        """Distribui 3 cartas para cada jogador e define o Vira"""
         cartas_necessarias = (num_jogadores * 3) + 1
         if len(self.baralho) < cartas_necessarias:
             self.resetar_baralho()
         
         maos = []
         for _ in range(num_jogadores):
-            mao_jogador = []
-            for _ in range(3):
-                mao_jogador.append(self.baralho.pop())
+            mao_jogador = [self.baralho.pop() for _ in range(3)]
             maos.append(mao_jogador)
             
         self.vira = self.baralho.pop()
@@ -62,65 +50,55 @@ class TrucoGame:
         return maos, self.vira
 
     def definir_manilha(self):
-        """Define qual carta é a Manilha baseado no Vira"""
-        if not self.vira: return
-        
+        """Define qual é a carta forte com base no Vira"""
         idx_vira = FORCA_PADRAO.index(self.vira.valor)
-        # A manilha é a próxima carta na sequência circular
         idx_manilha = (idx_vira + 1) % len(FORCA_PADRAO)
         self.manilha_da_rodada = FORCA_PADRAO[idx_manilha]
 
     def calcular_forca(self, carta):
-        """
-        Calcula a força numérica da carta para comparação.
-        Quanto maior o número, mais forte a carta.
-        """
-        # 1. Verifica se é Manilha (Força Máxima)
         if carta.valor == self.manilha_da_rodada:
-            # Base 100 + valor do naipe (garante que Zap ganhe de Copas, etc.)
             return 100 + NAIPES[carta.naipe]
-            
-        # 2. Cartas Comuns (Força baseada na posição do array)
         return FORCA_PADRAO.index(carta.valor)
 
 class Mao:
     def __init__(self, jogo):
         self.jogo = jogo
-        self.rodadas = [] # Armazena quem ganhou cada rodada: 0, 1 ou -1 (empate)
+        self.rodadas = [] # 0, 1 ou -1 (empate)
         self.vencedor_mao = None 
         
-        # Controle de Aposta (Truco, Seis, Nove, Doze)
+        # Estado da Aposta
         self.valor_atual = 1 
         self.dono_atual_da_aposta = None 
 
+    def get_proximo_valor(self):
+        sequencia = {1: 3, 3: 6, 6: 9, 9: 12}
+        return sequencia.get(self.valor_atual, None)
+
     def pode_pedir_aumento(self, jogador_id):
-        """Verifica se um jogador pode pedir aumento da aposta"""
-        
-        # Se já vale 12, não dá pra aumentar mais
+        # TRAVA DE SEGURANÇA
         if self.valor_atual >= 12:
-            return False, "Valor máximo atingido!"
+            return False, "A aposta já está no máximo (12)!"
         
-        # Se eu já pedi o truco atual, não posso pedir em cima de mim mesmo
-        # (Tem que esperar o adversário aumentar)
+        # Se eu já sou o dono, não posso pedir em cima do meu pedido
         if self.dono_atual_da_aposta == jogador_id:
-            return False, "Você já tem o controle da aposta."
+            proximo = self.get_proximo_valor()
+            return False, f"Você já tem o controle. Aguarde o adversário pedir {proximo}."
             
         return True, "Pode pedir"
 
     def verificar_fim_mao(self):
         """
-        Analisa o histórico de rodadas para definir se alguém ganhou a Mão.
-        Regras de Truco Paulista.
+        Regra: Quem ganha 2 rodadas leva.
+        Empate na 1ª -> Quem ganha a 2ª leva.
+        Empate na 1ª e 2ª -> Quem ganha a 3ª leva.
+        Empate na 1ª, 2ª e 3ª -> Ninguém ganha.
+        Vencedor na 1ª e Empate na 2ª -> Quem ganhou a 1ª leva.
         """
         r = self.rodadas
         
-        # Precisa de pelo menos 2 rodadas para decidir (exceto 2x0 direto)
-        if len(r) < 2: 
-            return
+        if len(r) < 2: return
 
-        # ==========================================================
-        # 1. VITÓRIA DIRETA (Alguém ganhou 2 rodadas)
-        # ==========================================================
+        # 1. Vitória Limpa (2x0 ou 2x1)
         if r.count(0) == 2:
             self.vencedor_mao = "Time 0"
             return
@@ -128,31 +106,21 @@ class Mao:
             self.vencedor_mao = "Time 1"
             return
 
-        # ==========================================================
-        # 2. REGRAS DE EMPATE (CANGA)
-        # ==========================================================
-        
-        # CASO A: Primeira rodada empatou
+        # 2. Primeira Empatada (Canga)
         if r[0] == -1:
-            # Quem ganhar a segunda, leva a mão
-            if r[1] == 0: 
-                self.vencedor_mao = "Time 0"
-            elif r[1] == 1: 
-                self.vencedor_mao = "Time 1"
+            if r[1] == 0: self.vencedor_mao = "Time 0"
+            elif r[1] == 1: self.vencedor_mao = "Time 1"
             elif len(r) == 3:
-                # Se empatou a primeira e a segunda, quem ganhar a terceira leva
                 if r[2] == 0: self.vencedor_mao = "Time 0"
                 elif r[2] == 1: self.vencedor_mao = "Time 1"
-                else: self.vencedor_mao = "Ninguem" # Empate nas 3 (raríssimo)
+                else: self.vencedor_mao = "Ninguém"
 
-        # CASO B: Primeira teve vencedor, mas a segunda empatou
+        # 3. Primeira com Vencedor, Segunda Empatada -> FIM DE JOGO
         elif r[1] == -1:
-            # Regra: Empatou a segunda, ganha quem venceu a primeira
             if r[0] == 0: self.vencedor_mao = "Time 0"
             elif r[0] == 1: self.vencedor_mao = "Time 1"
         
-        # CASO C: Terceira rodada empatou
+        # 4. Terceira Empatada
         elif len(r) == 3 and r[2] == -1:
-             # Regra: Empatou a terceira, ganha quem venceu a primeira
              if r[0] == 0: self.vencedor_mao = "Time 0"
              elif r[0] == 1: self.vencedor_mao = "Time 1"
