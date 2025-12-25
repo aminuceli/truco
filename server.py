@@ -224,7 +224,9 @@ async def processar_jogada_carta(nome_sala, sid, carta_obj):
             await atualizar_turnos(nome_sala)
         else:
             # Envia o OBJETO vencedor (que pode ser o índice 0 ou 1)
-            await finalizar_mao(nome_sala, sala['mao'].vencedor_mao)async def processar_jogada_carta(nome_sala, sid, carta_obj):
+            await finalizar_mao(nome_sala, sala['mao'].vencedor_mao)
+    
+async def processar_jogada_carta(nome_sala, sid, carta_obj):
     if nome_sala not in jogos: return
     sala = jogos[nome_sala]
     
@@ -691,6 +693,7 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
 
