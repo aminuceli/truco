@@ -31,7 +31,7 @@ static_files = {
 app = socketio.ASGIApp(sio, static_files=static_files)
 
 # Listas de sons (CORRETAS: Sem .mp3)
-SONS_TRUCO = ['truco', 'truco1', 'seis', 'nove', 'doze'] 
+SONS_TRUCO = ['truco', 'truco1'] 
 SONS_SEIS = ['seis']
 SONS_NOVE = ['nove']
 SONS_DOZE = ['doze']
@@ -697,6 +697,7 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
 
