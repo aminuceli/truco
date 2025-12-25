@@ -177,8 +177,9 @@ async def processar_jogada_carta(nome_sala, sid, carta_obj):
         await atualizar_turnos(nome_sala) 
         await asyncio.sleep(1.5)
         
+        # Identificação do vencedor da rodada
         maior_forca = -1
-        idx_venc = -1
+        idx_venc_rodada = -1
         empate = False
 
         for item in sala['mesa_cartas']:
@@ -187,33 +188,28 @@ async def processar_jogada_carta(nome_sala, sid, carta_obj):
             
             if f > maior_forca:
                 maior_forca = f
-                if sid_j in sala['jogadores']:
-                    idx_venc = sala['jogadores'].index(sid_j)
+                idx_venc_rodada = sala['jogadores'].index(sid_j)
                 empate = False 
             elif f == maior_forca:
                 empate = True 
         
         vencedor_txt = ""
-        proximo_a_jogar = -1
-
         if empate:
             sala['mao'].rodadas.append(-1)
             vencedor_txt = "EMPATE (Canga)"
-            # No empate, quem torna é quem ganhou a anterior ou o inicial
-            if idx_venc != -1: 
-                proximo_a_jogar = idx_venc
-            else:
-                proximo_a_jogar = (sala['jogador_inicial_mao'] + len(sala['mao'].rodadas)) % num_p
+            # No empate, o próximo a jogar é quem começou a rodada anterior
+            proximo_a_jogar = (sala['jogador_inicial_mao'] + len(sala['mao'].rodadas)) % num_p
         else:
-            time_vencedor_rodada = idx_venc % 2
+            time_vencedor_rodada = idx_venc_rodada % 2
             sala['mao'].rodadas.append(time_vencedor_rodada)
             
-            # --- AJUSTE PARA LETRAS ---
+            # Definindo o vencedor por LETRA para o Front-end
             vencedor_txt = "Time A" if time_vencedor_rodada == 0 else "Time B"
-            proximo_a_jogar = idx_venc # Vencedor sai jogando
+            proximo_a_jogar = idx_venc_rodada # Vencedor sai jogando
 
         sala['mao'].verificar_fim_mao() 
         
+        # Só notifica rodada se a mão não acabou (evita bugs visuais)
         if not sala['mao'].vencedor_mao:
             await notificar_info_jogo(nome_sala)
             for p in sala['jogadores']:
@@ -227,6 +223,72 @@ async def processar_jogada_carta(nome_sala, sid, carta_obj):
             sala['vez_atual_idx'] = proximo_a_jogar
             await atualizar_turnos(nome_sala)
         else:
+            # Envia o OBJETO vencedor (que pode ser o índice 0 ou 1)
+            await finalizar_mao(nome_sala, sala['mao'].vencedor_mao)async def processar_jogada_carta(nome_sala, sid, carta_obj):
+    if nome_sala not in jogos: return
+    sala = jogos[nome_sala]
+    
+    sala['mesa_cartas'].append( (sid, carta_obj) )
+    await emitir_som(nome_sala, 'card')
+    await enviar_estado_mesa(nome_sala)
+
+    num_p = sala['max_jogadores']
+    
+    if len(sala['mesa_cartas']) < num_p:
+        sala['vez_atual_idx'] = (sala['vez_atual_idx'] + 1) % num_p
+        await atualizar_turnos(nome_sala)
+    else:
+        sala['vez_atual_idx'] = None
+        await atualizar_turnos(nome_sala) 
+        await asyncio.sleep(1.5)
+        
+        # Identificação do vencedor da rodada
+        maior_forca = -1
+        idx_venc_rodada = -1
+        empate = False
+
+        for item in sala['mesa_cartas']:
+            sid_j, c = item
+            f = sala['jogo'].calcular_forca(c)
+            
+            if f > maior_forca:
+                maior_forca = f
+                idx_venc_rodada = sala['jogadores'].index(sid_j)
+                empate = False 
+            elif f == maior_forca:
+                empate = True 
+        
+        vencedor_txt = ""
+        if empate:
+            sala['mao'].rodadas.append(-1)
+            vencedor_txt = "EMPATE (Canga)"
+            # No empate, o próximo a jogar é quem começou a rodada anterior
+            proximo_a_jogar = (sala['jogador_inicial_mao'] + len(sala['mao'].rodadas)) % num_p
+        else:
+            time_vencedor_rodada = idx_venc_rodada % 2
+            sala['mao'].rodadas.append(time_vencedor_rodada)
+            
+            # Definindo o vencedor por LETRA para o Front-end
+            vencedor_txt = "Time A" if time_vencedor_rodada == 0 else "Time B"
+            proximo_a_jogar = idx_venc_rodada # Vencedor sai jogando
+
+        sala['mao'].verificar_fim_mao() 
+        
+        # Só notifica rodada se a mão não acabou (evita bugs visuais)
+        if not sala['mao'].vencedor_mao:
+            await notificar_info_jogo(nome_sala)
+            for p in sala['jogadores']:
+                if not p.startswith('BOT'):
+                    await sio.emit('resultado_rodada', {'vencedor': vencedor_txt}, to=p)
+        
+        sala['mesa_cartas'] = []
+        await enviar_estado_mesa(nome_sala)
+        
+        if not sala['mao'].vencedor_mao:
+            sala['vez_atual_idx'] = proximo_a_jogar
+            await atualizar_turnos(nome_sala)
+        else:
+            # Envia o OBJETO vencedor (que pode ser o índice 0 ou 1)
             await finalizar_mao(nome_sala, sala['mao'].vencedor_mao)
 
 async def iniciar_nova_mao(nome_sala):
@@ -629,6 +691,7 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
 
