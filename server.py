@@ -300,63 +300,53 @@ async def iniciar_nova_mao(nome_sala):
         for p in sala['jogadores']:
             if not p.startswith('BOT'): await sio.emit('status_vez', {'e_sua_vez': False}, to=p)
 
-async def finalizar_mao(nome_sala, ganhador_dado):
+async def finalizar_mao(nome_sala, ganhador_bruto):
     if nome_sala not in jogos: return
     sala = jogos[nome_sala]
     pontos = sala['mao'].valor_atual
     
-    time_venc = 0 # Padrão Time A (0)
-    
-    # --- LÓGICA DE DETECÇÃO POR LETRAS ---
-    if isinstance(ganhador_dado, str) and ganhador_dado in sala['jogadores']:
-        idx_jogador = sala['jogadores'].index(ganhador_dado)
-        time_venc = 1 if (idx_jogador % 2) != 0 else 0
-    elif isinstance(ganhador_dado, int):
-        time_venc = ganhador_dado % 2
+    # Descobre quem é o time vencedor (0 para A, 1 para B)
+    if isinstance(ganhador_bruto, int):
+        t_venc = ganhador_bruto # Já é 0 ou 1
+    elif isinstance(ganhador_bruto, str) and ganhador_bruto in sala['jogadores']:
+        t_venc = sala['jogadores'].index(ganhador_bruto) % 2
     else:
-        texto = str(ganhador_dado).upper()
-        # Se contiver 'B' ou o número '2', pontua para o Time B (Índice 1)
-        if "B" in texto or "2" in texto:
-            time_venc = 1
-        else:
-            raise ValueError(f"Ganhador inválido: {ganhador_dado}")
-            
-    sala['placar'][time_venc] += pontos
-    print(f"[DEBUG] Placar Atualizado: Time {'B' if time_venc else 'A'} ganhou {pontos} pts. Novo Placar: {sala['placar']}")
+        # Se vier texto "Time A" ou "Time B"
+        t_venc = 1 if "B" in str(ganhador_bruto).upper() else 0
+
+    # ADICIONA OS PONTOS NO PLACAR CORRETO
+    sala['placar'][t_venc] += pontos
+    
+    # Log para você ver no console quem ganhou
+    nome_v = "TIME A" if t_venc == 0 else "TIME B"
+    print(f"--- FIM DE MÃO: {nome_v} GANHOU {pontos} PONTOS ---")
 
     if max(sala['placar']) >= 12:
-        idx_set_winner = 0 if sala['placar'][0] >= 12 else 1
+        # Lógica de vitória da partida (Sets)
+        vencedor_set = 0 if sala['placar'][0] >= 12 else 1
         if 'sets' not in sala: sala['sets'] = [0, 0]
-        sala['sets'][idx_set_winner] += 1
-        sala['placar'] = [0, 0] 
+        sala['sets'][vencedor_set] += 1
         
-        if sala['sets'][idx_set_winner] >= 2:
-            win_team_letra = "A" if idx_set_winner == 0 else "B"
-            for i, p in enumerate(sala['jogadores']):
-                if p.startswith('BOT'): continue
-                meu_time_idx = i % 2
-                eh_vitoria = (meu_time_idx == idx_set_winner)
-                msg = "VITÓRIA! CAMPEÃO!" if eh_vitoria else "DERROTA! FIM DE JOGO!"
-                snd = 'win' if eh_vitoria else 'lose'
-                await sio.emit('fim_de_jogo', {
-                    'titulo': msg, 
-                    'motivo': f"Time {win_team_letra} venceu a partida!", 
-                    'placar': [0,0], 
-                    'som': snd
-                }, to=p)
-            sala['sets'] = [0, 0] 
+        # Reseta o placar de pontos para 0x0
+        sala['placar'] = [0, 0]
+        
+        # Verifica se alguém ganhou 2 sets
+        if sala['sets'][vencedor_set] >= 2:
+            # Fim do jogo total
+            msg = f"Time {'A' if vencedor_set == 0 else 'B'} é o CAMPEÃO!"
+            await sio.emit('mensagem', msg, room=nome_sala)
             sala['estado_jogo'] = 'FIM'
         else:
-            await asyncio.sleep(4)
+            await asyncio.sleep(3)
             await iniciar_nova_mao(nome_sala)
     else:
-        nome_exibir = "Time A" if time_venc == 0 else "Time B"
+        # Apenas fim de uma mão normal
         for p in sala['jogadores']:
             if not p.startswith('BOT'):
                 await sio.emit('fim_de_mao', {
-                    'ganhador': nome_exibir, 
-                    'ganhador_idx': time_venc,
-                    'pontos': pontos
+                    'ganhador': "Time A" if t_venc == 0 else "Time B",
+                    'pontos': pontos,
+                    'placar_atualizado': sala['placar']
                 }, to=p)
         await asyncio.sleep(3)
         await iniciar_nova_mao(nome_sala)
@@ -625,6 +615,7 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
 
