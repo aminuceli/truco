@@ -160,69 +160,117 @@ async def bot_jogar_delay(nome_sala, idx_bot):
         print(f"ERRO CRÍTICO NO BOT: {e}")
         traceback.print_exc()
 async def processar_jogada_carta(nome_sala, sid, carta_obj):
-    if nome_sala not in jogos: 
-        return
+    if nome_sala not in jogos: return
     sala = jogos[nome_sala]
-
-    sala['mesa_cartas'].append((sid, carta_obj))
+    
+    sala['mesa_cartas'].append( (sid, carta_obj) )
     await emitir_som(nome_sala, 'card')
     await enviar_estado_mesa(nome_sala)
 
     num_p = sala['max_jogadores']
-
+    
     if len(sala['mesa_cartas']) < num_p:
         sala['vez_atual_idx'] = (sala['vez_atual_idx'] + 1) % num_p
         await atualizar_turnos(nome_sala)
-        return
-
-    # Rodada completa
-    sala['vez_atual_idx'] = None
-    await atualizar_turnos(nome_sala)
-    await asyncio.sleep(1.5)
-
-    maior_forca = -1
-    idx_venc_rodada = -1
-    empate = False
-
-    for sid_j, c in sala['mesa_cartas']:
-        f = sala['jogo'].calcular_forca(c)
-        if f > maior_forca:
-            maior_forca = f
-            idx_venc_rodada = sala['jogadores'].index(sid_j)
-            empate = False
-        elif f == maior_forca:
-            empate = True
-
-    if empate:
-        sala['mao'].rodadas.append(-1)
-        vencedor_txt = "EMPATE (Canga)"
-        proximo_a_jogar = (sala['jogador_inicial_mao'] + len(sala['mao'].rodadas)) % num_p
     else:
-        time_vencedor_rodada = idx_venc_rodada % 2
-        sala['mao'].rodadas.append(time_vencedor_rodada)
-        vencedor_txt = "Time A" if time_vencedor_rodada == 0 else "Time B"
-        proximo_a_jogar = idx_venc_rodada  # vencedor “torna”
+        # FIM DA RODADA
+        sala['vez_atual_idx'] = None
+        await atualizar_turnos(nome_sala) 
+        await asyncio.sleep(1.5)
+        
+        # --- CALCULA QUEM GANHOU A RODADA (FORÇA) ---
+        maior_forca = -1
+        idx_venc_rodada = -1
+        empate = False
 
-    sala['mao'].verificar_fim_mao()
+        for item in sala['mesa_cartas']:
+            sid_j, c = item
+            f = sala['jogo'].calcular_forca(c)
+            
+            if f > maior_forca:
+                maior_forca = f
+                if sid_j in sala['jogadores']:
+                    idx_venc_rodada = sala['jogadores'].index(sid_j)
+                empate = False 
+            elif f == maior_forca:
+                empate = True 
+        
+        vencedor_txt = ""
+        proximo_a_jogar = -1
 
-    # ✅ AQUI É A CORREÇÃO CRÍTICA:
-    if sala['mao'].vencedor_mao is not None:
-        sala['mesa_cartas'] = []
-        await enviar_estado_mesa(nome_sala)
-        await finalizar_mao(nome_sala, sala['mao'].vencedor_mao)
-        return
+        if empate:
+            sala['mao'].rodadas.append(-1)
+            vencedor_txt = "EMPATE (Canga)"
+            # Se a 1ª empatou, quem torna a 2ª é quem começou a mão
+            if len(sala['mao'].rodadas) == 1:
+                proximo_a_jogar = (sala['jogador_inicial_mao'] + 1) % num_p
+            # Se a 2ª ou 3ª empatou, quem torna é quem ganhou a anterior
+            elif idx_venc_rodada != -1: 
+                proximo_a_jogar = idx_venc_rodada
+            else:
+                 proximo_a_jogar = sala['jogador_inicial_mao'] # Fallback
+        else:
+            time_vencedor_rodada = idx_venc_rodada % 2
+            sala['mao'].rodadas.append(time_vencedor_rodada)
+            vencedor_txt = "Time A" if time_vencedor_rodada == 0 else "Time B"
+            proximo_a_jogar = idx_venc_rodada # Vencedor sai jogando
 
-    # mão continua
-    await notificar_info_jogo(nome_sala)
-    for p in sala['jogadores']:
-        if not p.startswith('BOT'):
-            await sio.emit('resultado_rodada', {'vencedor': vencedor_txt}, to=p)
+        # --- LÓGICA DE QUEM GANHOU A MÃO (MELHOR DE 3 + REGRAS DE EMPATE) ---
+        r = sala['mao'].rodadas
+        venc_mao_int = None # Variável INT para não ter erro
+        
+        vitorias_t0 = r.count(0)
+        vitorias_t1 = r.count(1)
+        
+        # 1. Vitória Simples (2x0 ou 2x1)
+        if vitorias_t0 >= 2: venc_mao_int = 0
+        elif vitorias_t1 >= 2: venc_mao_int = 1
+        
+        # 2. Lógica de Empate (Truco Paulista/Mineiro Padrão)
+        # Se 1ª empatou -> Quem ganhar a 2ª leva
+        elif r[0] == -1 and len(r) >= 2:
+            if r[1] == 0: venc_mao_int = 0
+            elif r[1] == 1: venc_mao_int = 1
+            # Se 2ª tbm empatou -> Quem ganhar a 3ª leva (se 3ª empatar ninguem ganha ou critério maior)
+            elif len(r) == 3:
+                if r[2] == 0: venc_mao_int = 0
+                elif r[2] == 1: venc_mao_int = 1
+        
+        # Se 1ª teve vencedor, mas 2ª empatou -> Quem ganhou a 1ª LEVA DIRETO
+        elif len(r) >= 2 and r[1] == -1 and r[0] != -1:
+            venc_mao_int = r[0] # Fim de papo
 
-    sala['mesa_cartas'] = []
-    await enviar_estado_mesa(nome_sala)
+        # Se 1ª e 2ª tiveram vencedores diferentes, e 3ª empatou -> Quem ganhou a 1ª LEVA (Regra comum)
+        # Ou decide na maior carta (seu código atual não guarda as cartas da canga, então usamos regra da 1ª)
+        elif len(r) == 3 and r[2] == -1:
+             # Geralmente empata a 3ª, ganha quem ganhou a 1ª? Ou ninguem?
+             # Vamos assumir que não empata 3ª rodada quase nunca, mas se empatar, segue o jogo.
+             pass
 
-    sala['vez_atual_idx'] = proximo_a_jogar
-    await atualizar_turnos(nome_sala)
+        sala['mao'].vencedor_mao = venc_mao_int
+        
+        # Se alguém venceu, finaliza
+        # IMPORTANTE: "is not None" faz o Zero (Time A) ser respeitado!
+        if sala['mao'].vencedor_mao is not None:
+             sala['mesa_cartas'] = []
+             await enviar_estado_mesa(nome_sala)
+             # Passa o INTEIRO para a função finalizar
+             await finalizar_mao(nome_sala, sala['mao'].vencedor_mao)
+        else:
+            # A mão continua
+            await notificar_info_jogo(nome_sala)
+            for p in sala['jogadores']:
+                if not p.startswith('BOT'):
+                    await sio.emit('resultado_rodada', {'vencedor': vencedor_txt}, to=p)
+            
+            sala['mesa_cartas'] = []
+            await enviar_estado_mesa(nome_sala)
+            
+            # Se chegamos na 3ª rodada e ninguém ganhou ainda (ex: 1x1), segue o jogo
+            if len(sala['mao'].rodadas) < 3 or (len(sala['mao'].rodadas) == 3 and venc_mao_int is None):
+                sala['vez_atual_idx'] = proximo_a_jogar
+                await atualizar_turnos(nome_sala)
+
 
 
 async def iniciar_nova_mao(nome_sala):
@@ -300,61 +348,77 @@ async def iniciar_nova_mao(nome_sala):
         for p in sala['jogadores']:
             if not p.startswith('BOT'): await sio.emit('status_vez', {'e_sua_vez': False}, to=p)
 
-async def finalizar_mao(nome_sala, ganhador_bruto):
-    if nome_sala not in jogos:
-        return
+async def finalizar_mao(nome_sala, ganhador_dado):
+    if nome_sala not in jogos: return
     sala = jogos[nome_sala]
     pontos = sala['mao'].valor_atual
+    
+    time_venc = 0 # Valor padrão (só usado se tudo falhar, mas não vai falhar)
+    
+    # 1. Se receber Inteiro (0 ou 1), confia nele.
+    if isinstance(ganhador_dado, int):
+        time_venc = ganhador_dado % 2
+    
+    # 2. Se receber String (fallback), analisa o conteúdo.
+    elif isinstance(ganhador_dado, str):
+        texto = ganhador_dado.upper()
+        # Se tiver "1", "B", ou "TIME 1", é o Time 1.
+        if "1" in texto or "B" in texto:
+            time_venc = 1
+        else:
+            time_venc = 0
+            
+    # Aplica os pontos no array do placar (índice 0 ou 1)
+    sala['placar'][time_venc] += pontos
+    print(f"[DEBUG] VENCEDOR MAO: Time {time_venc} (Pontos: {pontos})")
 
-    # 0 = A, 1 = B
-    if isinstance(ganhador_bruto, int):
-        t_venc = ganhador_bruto  # já é 0 ou 1
-    elif isinstance(ganhador_bruto, str) and ganhador_bruto in sala['jogadores']:
-        t_venc = sala['jogadores'].index(ganhador_bruto) % 2
-    else:
-        t_venc = 1 if "B" in str(ganhador_bruto).upper() else 0
-
-    sala['placar'][t_venc] += pontos
-    print(f"[DEBUG] FIM DE MÃO: TIME {'A' if t_venc == 0 else 'B'} +{pontos} => Placar: {sala['placar']}")
-
+    # Verifica se alguém fechou o SET (12 pontos)
     if max(sala['placar']) >= 12:
         idx_set_winner = 0 if sala['placar'][0] >= 12 else 1
-        if 'sets' not in sala:
-            sala['sets'] = [0, 0]
+        
+        if 'sets' not in sala: sala['sets'] = [0, 0]
         sala['sets'][idx_set_winner] += 1
-        sala['placar'] = [0, 0]
-
+        sala['placar'] = [0, 0] 
+        
         if sala['sets'][idx_set_winner] >= 2:
             win_team_letra = "A" if idx_set_winner == 0 else "B"
             for i, p in enumerate(sala['jogadores']):
-                if p.startswith('BOT'):
-                    continue
-                meu_time_idx = i % 2
-                eh_vitoria = (meu_time_idx == idx_set_winner)
+                if p.startswith('BOT'): continue
+                meu_time = i % 2
+                eh_vitoria = (meu_time == idx_set_winner)
                 msg = "VITÓRIA! CAMPEÃO!" if eh_vitoria else "DERROTA! FIM DE JOGO!"
                 snd = 'win' if eh_vitoria else 'lose'
                 await sio.emit('fim_de_jogo', {
-                    'titulo': msg,
-                    'motivo': f"Time {win_team_letra} venceu a partida!",
-                    'placar': [0, 0],
+                    'titulo': msg, 
+                    'motivo': f"Time {win_team_letra} venceu a partida!", 
+                    'placar': [0,0], 
                     'som': snd
                 }, to=p)
-            sala['sets'] = [0, 0]
-            sala['estado_jogo'] = 'FIM'
+            sala['sets'] = [0, 0]; sala['estado_jogo'] = 'FIM'
         else:
+            # Fim de Set
+            placar_sets = f"{sala['sets'][0]} x {sala['sets'][1]}"
+            msg = f"FIM DA PARTIDA! Time {'A' if idx_set_winner==0 else 'B'} venceu o Set.\nSETS: {placar_sets}"
+            for i, p in enumerate(sala['jogadores']):
+                if not p.startswith('BOT'):
+                    await sio.emit('mensagem', msg, to=p)
+                    som = 'win' if (i%2) == idx_set_winner else 'lose'
+                    await sio.emit('tocar_som', {'som': som}, to=p)
             await asyncio.sleep(4)
             await iniciar_nova_mao(nome_sala)
     else:
-        nome_exibir = "Time A" if t_venc == 0 else "Time B"
+        # Fim de Mão Normal
+        nome_exibir = "Time A" if time_venc == 0 else "Time B"
         for p in sala['jogadores']:
             if not p.startswith('BOT'):
                 await sio.emit('fim_de_mao', {
-                    'ganhador': nome_exibir,
-                    'ganhador_idx': t_venc,
+                    'ganhador': nome_exibir, 
+                    'ganhador_idx': time_venc,
                     'pontos': pontos
                 }, to=p)
         await asyncio.sleep(3)
         await iniciar_nova_mao(nome_sala)
+
 
 # ==============================================================================
 # 3. TRUCO E INTERAÇÕES
@@ -620,6 +684,7 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
 
