@@ -219,7 +219,7 @@ async def processar_jogada_carta(nome_sala, sid, carta_obj):
         sala['mesa_cartas'] = []
         await enviar_estado_mesa(nome_sala)
         
-        if not sala['mao'].vencedor_mao:
+        if sala['mao'].vencedor_mao is None:
             sala['vez_atual_idx'] = proximo_a_jogar
             await atualizar_turnos(nome_sala)
         else:
@@ -387,7 +387,7 @@ async def finalizar_mao(nome_sala, ganhador_dado):
         if "B" in texto or "2" in texto:
             time_venc = 1
         else:
-            time_venc = 0
+            raise ValueError(f"Ganhador inválido: {ganhador_dado}")
             
     sala['placar'][time_venc] += pontos
     print(f"[DEBUG] Placar Atualizado: Time {'B' if time_venc else 'A'} ganhou {pontos} pts. Novo Placar: {sala['placar']}")
@@ -693,6 +693,7 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
 
