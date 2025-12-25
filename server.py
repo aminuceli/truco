@@ -169,75 +169,112 @@ async def processar_jogada_carta(nome_sala, sid, carta_obj):
 
     num_p = sala['max_jogadores']
     
-    # Verifica se todos jogaram
+    # --- Verifica se a rodada (mesa) está cheia ---
     if len(sala['mesa_cartas']) < num_p:
         sala['vez_atual_idx'] = (sala['vez_atual_idx'] + 1) % num_p
         await atualizar_turnos(nome_sala)
     else:
-        # --- FIM DA RODADA ---
+        # FIM DA RODADA - Todos jogaram
         sala['vez_atual_idx'] = None
         await atualizar_turnos(nome_sala) 
         await asyncio.sleep(1.5)
         
-        # DEFINIÇÃO DE HIERARQUIA DE NAIPES PARA DESEMPATE
-        # Ajuste conforme sua regra: 1=Ouros, 2=Espadas, 3=Copas, 4=Paus (Zap)
-        FORCA_NAIPES = {'ouros': 1, 'espadas': 2, 'copas': 3, 'paus': 4}
-
-        maior_forca_valor = -1
-        maior_forca_naipe = -1
-        idx_venc_rodada = -1
+        # --- 1. CALCULA QUEM GANHOU A RODADA (OU EMPATE) ---
+        maior_forca = -1
+        times_com_maior_forca = set() # Armazena quais times (0 ou 1) têm a maior carta
         
-        # --- CALCULA QUEM GANHOU A RODADA COM DESEMPATE ---
         for item in sala['mesa_cartas']:
             sid_j, c = item
+            f = sala['jogo'].calcular_forca(c)
             
-            # Força numérica (ex: 3 valendo muito, 4 valendo pouco)
-            f_valor = sala['jogo'].calcular_forca(c)
+            # Descobre o time deste jogador
+            idx_jogador = sala['jogadores'].index(sid_j)
+            time_jogador = idx_jogador % 2
             
-            # Força do naipe (para desempate)
-            # Tenta pegar pelo nome (ex: 'ouros'), se não der usa 0
-            naipe_str = getattr(c, 'naipe', '').lower()
-            f_naipe = FORCA_NAIPES.get(naipe_str, 0)
-            
-            # 1. Se valor for maior, assume a liderança
-            if f_valor > maior_forca_valor:
-                maior_forca_valor = f_valor
-                maior_forca_naipe = f_naipe
-                if sid_j in sala['jogadores']:
-                    idx_venc_rodada = sala['jogadores'].index(sid_j)
-            
-            # 2. Se valor for IGUAL, decide pelo naipe
-            elif f_valor == maior_forca_valor:
-                if f_naipe > maior_forca_naipe:
-                    maior_forca_naipe = f_naipe
-                    if sid_j in sala['jogadores']:
-                        idx_venc_rodada = sala['jogadores'].index(sid_j)
+            if f > maior_forca:
+                maior_forca = f
+                times_com_maior_forca = {time_jogador} # Novo líder
+            elif f == maior_forca:
+                times_com_maior_forca.add(time_jogador) # Empate potencial
         
-        # Como sempre há desempate, definimos o vencedor direto
-        time_vencedor_rodada = idx_venc_rodada % 2
-        sala['mao'].rodadas.append(time_vencedor_rodada)
+        # Decide o resultado da RODADA
+        vencedor_rodada = -1 # -1 significa EMPATE (Canga)
+        vencedor_txt = "EMPATE (Canga)"
         
-        vencedor_txt = "Time A" if time_vencedor_rodada == 0 else "Time B"
-        proximo_a_jogar = idx_venc_rodada # Vencedor torna a próxima
+        if len(times_com_maior_forca) == 1:
+            # Apenas um time tem a carta mais forte
+            vencedor_rodada = list(times_com_maior_forca)[0]
+            vencedor_txt = "Time A" if vencedor_rodada == 0 else "Time B"
+        
+        # Adiciona o resultado ao histórico
+        sala['mao'].rodadas.append(vencedor_rodada)
+        
+        # Define quem começa a próxima (quem ganhou ou quem começou a anterior se empatou)
+        proximo_a_jogar = -1
+        if vencedor_rodada != -1:
+            # Procura o jogador desse time que jogou a maior carta para ser o primeiro
+            # (Simplificação: pega o primeiro índice desse time que venceu a rodada atual)
+            # Para ser exato, deveríamos guardar quem jogou a carta, mas a regra básica manda o vencedor tornar.
+            # Vamos achar quem jogou a carta vencedora:
+            for item in sala['mesa_cartas']:
+                sid_j, c = item
+                if sala['jogo'].calcular_forca(c) == maior_forca:
+                    idx = sala['jogadores'].index(sid_j)
+                    if (idx % 2) == vencedor_rodada:
+                        proximo_a_jogar = idx
+                        break
+        else:
+             # Se empatou, quem torna é quem começou a rodada atual (regra comum) ou o "pé"
+             # Mas o mais comum no empate é quem "melou" a carta, ou segue a roda. 
+             # Vamos manter: quem tornou a rodada atual, torna a próxima.
+             # Para isso precisamos saber quem começou essa rodada. Vamos usar lógica de incremento:
+             # Se empatou, o próximo é o próximo do 'jogador_inicial_mao' + n_rodada?
+             # Simplificação robusta: O mão (primeiro da rodada 1) torna no empate.
+             proximo_a_jogar = sala['jogador_inicial_mao']
 
-        # --- LÓGICA SIMPLIFICADA DE QUEM LEVA A MÃO (MELHOR DE 3) ---
+
+        # --- 2. LÓGICA DE QUEM LEVA A MÃO (AQUI ESTAVA O ERRO) ---
         r = sala['mao'].rodadas
-        venc_mao_int = None
+        venc_mao_int = None 
         
+        # Contagem simples
         vitorias_t0 = r.count(0)
         vitorias_t1 = r.count(1)
         
-        if vitorias_t0 >= 2: venc_mao_int = 0
-        elif vitorias_t1 >= 2: venc_mao_int = 1
+        # REGRA 1: Vitória simples (2x0)
+        if vitorias_t0 == 2: venc_mao_int = 0
+        elif vitorias_t1 == 2: venc_mao_int = 1
         
+        # REGRA 2: Primeira rodada empatou (Canga na 1ª)
+        # Regra: Quem ganhar a 2ª, LEVA A MÃO.
+        elif r[0] == -1:
+            if len(r) >= 2 and r[1] != -1:
+                venc_mao_int = r[1] # <--- AQUI O FIX: Acaba na 2ª rodada!
+            elif len(r) == 3 and r[1] == -1 and r[2] != -1:
+                venc_mao_int = r[2] # 1ª e 2ª empataram, quem levar a 3ª ganha.
+            elif len(r) == 3 and r[1] == -1 and r[2] == -1:
+                venc_mao_int = -2 # 3 empates (ninguém ganha ou ganha o mão, escolhi anular)
+
+        # REGRA 3: Primeira teve vencedor, mas a 2ª empatou
+        # Regra: Quem ganhou a 1ª LEVA A MÃO.
+        elif len(r) >= 2 and r[1] == -1 and r[0] != -1:
+            venc_mao_int = r[0] # <--- FIX: Acaba na 2ª rodada se ela empatar!
+
+        # REGRA 4: 1ª e 2ª tiveram vencedores diferentes (1x1), decide na 3ª
+        elif len(r) == 3 and r[2] == -1:
+            # Se a 3ª empatar, a regra oficial diz que ganha quem venceu a 1ª
+            if r[0] != -1: venc_mao_int = r[0]
+
         sala['mao'].vencedor_mao = venc_mao_int
         
+        # --- 3. EXECUÇÃO DO RESULTADO ---
         if sala['mao'].vencedor_mao is not None:
+             # Mão encerrada
              sala['mesa_cartas'] = []
              await enviar_estado_mesa(nome_sala)
              await finalizar_mao(nome_sala, sala['mao'].vencedor_mao)
         else:
-            # A mão continua
+            # Continua para a próxima rodada
             await notificar_info_jogo(nome_sala)
             for p in sala['jogadores']:
                 if not p.startswith('BOT'):
@@ -248,7 +285,6 @@ async def processar_jogada_carta(nome_sala, sid, carta_obj):
             
             sala['vez_atual_idx'] = proximo_a_jogar
             await atualizar_turnos(nome_sala)
-
 
 async def iniciar_nova_mao(nome_sala):
     if nome_sala not in jogos: return
@@ -661,6 +697,7 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
 
