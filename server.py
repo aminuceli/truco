@@ -504,6 +504,9 @@ async def responder_truco_logica(nome_sala, sid, resposta, dados_extras=None):
         if novo_valor == 6: som_aumento = 'seis'
         elif novo_valor == 9: som_aumento = 'nove'
         elif novo_valor == 12: som_aumento = 'doze'
+        if som_aumento:
+        await emitir_som(nome_sala, som_aumento)
+
         
         sala['valor_proposto_temp'] = novo_valor 
         sala['pedinte_temp'] = repicador_idx 
@@ -697,6 +700,7 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
 
