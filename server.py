@@ -7,6 +7,28 @@ import os
 import traceback
 from truco_core import TrucoGame, Mao, Carta
 
+# =========================
+# CONFIG IA DO BOT
+# =========================
+BOT_CFG = {
+    # pedir truco (quando tem força)
+    "truco_muito_forte_min": 10,
+    "truco_duas_boas_min": 7,
+    "truco_chance_muito_forte": 0.75,
+    "truco_chance_duas_boas": 0.55,
+
+    # blefe
+    "blefe_chance_semi": 0.35,   # 1 carta média
+    "blefe_forca_min": 6,
+    "blefe_forca_max": 8,
+
+    # como joga cartas (mais “humano”)
+    "jogar_pior_primeira_chance": 0.35,  # se for o 1º da rodada, chance de não abrir com a maior
+    "jogar_media_primeira_chance": 0.45, # dentro da chance acima, usar carta média (senão usa a menor)
+    "jogar_pior_ultima_chance": 0.10,    # se for o último a jogar na rodada, chance de “vacilar”
+}
+
+
 # ==============================================================================
 # CONFIGURAÇÕES INICIAIS
 # ==============================================================================
@@ -152,28 +174,25 @@ async def atualizar_turnos(nome_sala):
 def bot_deve_pedir_truco(sala, idx_bot):
     if sala.get('estado_jogo') != 'JOGANDO' or 11 in sala.get('placar', []):
         return False
+
     mao = sala['maos_server'][idx_bot]
     if not mao:
         return False
 
-    # calcula força das cartas
-    forcas = sorted(
-        [sala['jogo'].calcular_forca(c) for c in mao],
-        reverse=True
-    )
+    forcas = sorted([sala['jogo'].calcular_forca(c) for c in mao], reverse=True)
 
-    # critérios simples e eficientes
-    tem_carta_muito_forte = forcas[0] >= 10
-    tem_duas_boas = len(forcas) >= 2 and forcas[1] >= 7
+    tem_carta_muito_forte = forcas[0] >= BOT_CFG["truco_muito_forte_min"]
+    tem_duas_boas = len(forcas) >= 2 and forcas[1] >= BOT_CFG["truco_duas_boas_min"]
 
-    chance = random.random()  # evita robô perfeito
+    chance = random.random()
 
-    if tem_carta_muito_forte and chance < 0.75:
+    if tem_carta_muito_forte and chance < BOT_CFG["truco_chance_muito_forte"]:
         return True
-    if tem_duas_boas and chance < 0.55:
+    if tem_duas_boas and chance < BOT_CFG["truco_chance_duas_boas"]:
         return True
 
     return False
+
 
 async def bot_pedir_truco(nome_sala, idx_bot):
     # BOT inicia o pedido de aumento igual ao humano (evento pedir_truco)
@@ -276,10 +295,45 @@ def bot_deve_blefar(sala, idx_bot):
         return True
 
     # semi-blefe (1 carta média)
-    if forcas[0] >= 6 and forcas[0] < 8 and chance < 0.35:
+    if (forcas[0] >= BOT_CFG["blefe_forca_min"] and forcas[0] < BOT_CFG["blefe_forca_max"]
+            and chance < BOT_CFG["blefe_chance_semi"]):
         return True
 
+
     return False
+            
+
+def escolher_carta_bot(sala, idx_bot):
+    mao_bot = sala['maos_server'][idx_bot]
+    if not mao_bot:
+        return None
+
+    # ordena por força (fraca -> forte)
+    ordenadas = sorted(mao_bot, key=lambda c: sala['jogo'].calcular_forca(c))
+
+    # quantas cartas já foram jogadas nesta rodada (mesa atual)
+    jogadas_na_rodada = len(sala.get('mesa_cartas', []))
+    total_jogadores = sala.get('max_jogadores', 4)
+
+    eh_primeiro = (jogadas_na_rodada == 0)
+    eh_ultimo = (jogadas_na_rodada == total_jogadores - 1)
+
+    # padrão: joga a melhor
+    escolha = ordenadas[-1]
+
+    # Se for o primeiro a jogar, às vezes não abre com a maior (fica mais humano)
+    if eh_primeiro and random.random() < BOT_CFG["jogar_pior_primeira_chance"]:
+        if random.random() < BOT_CFG["jogar_media_primeira_chance"] and len(ordenadas) >= 2:
+            escolha = ordenadas[len(ordenadas)//2]  # carta do meio
+        else:
+            escolha = ordenadas[0]  # a menor
+
+    # Se for o último, pequena chance de vacilar
+    if eh_ultimo and random.random() < BOT_CFG["jogar_pior_ultima_chance"]:
+        escolha = ordenadas[0]
+
+    return escolha
+
 
 async def bot_jogar_delay(nome_sala, idx_bot):
     await asyncio.sleep(1.5)
@@ -318,6 +372,7 @@ async def bot_jogar_delay(nome_sala, idx_bot):
             mao_bot,
             key=lambda c: sala['jogo'].calcular_forca(c)
         )
+
         mao_bot.remove(carta_escolhida)
 
         sid_bot = sala['jogadores'][idx_bot]
@@ -880,6 +935,7 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
 
