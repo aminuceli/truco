@@ -480,55 +480,55 @@ async def responder_truco_logica(nome_sala, sid, resposta, dados_extras=None):
         
         elif resposta == 'AUMENTAR':
         # Confirma o valor anterior
-        if 'valor_proposto_temp' in sala:
-            sala['mao'].valor_atual = sala['valor_proposto_temp']
+            if 'valor_proposto_temp' in sala:
+                sala['mao'].valor_atual = sala['valor_proposto_temp']
 
-        pedinte_original_idx = sala.get('pedinte_temp')
-        repicador_idx = sala['jogadores'].index(sid)
+            pedinte_original_idx = sala.get('pedinte_temp')
+            repicador_idx = sala['jogadores'].index(sid)
 
         # Leitura segura do valor
-        val_recebido = 0
-        if dados_extras:
-            val_recebido = dados_extras.get('novo_valor') or dados_extras.get('valor') or 0
+            val_recebido = 0
+            if dados_extras:
+                val_recebido = dados_extras.get('novo_valor') or dados_extras.get('valor') or 0
 
-        if not val_recebido:
-            atual = sala['mao'].valor_atual
-            if atual == 3:
-                val_recebido = 6
-            elif atual == 6:
-                val_recebido = 9
-            elif atual == 9:
-                val_recebido = 12
+            if not val_recebido:
+                atual = sala['mao'].valor_atual
+                if atual == 3:
+                    val_recebido = 6
+                elif atual == 6:
+                    val_recebido = 9
+                elif atual == 9:
+                    val_recebido = 12
 
-        novo_valor = int(val_recebido)
+            novo_valor = int(val_recebido)
 
         # Som do aumento (se quiser variações, coloque seis1/nove1/doze1 nas listas)
-        som_aumento = None
-        if novo_valor == 6:
-            som_aumento = get_som_aleatorio(SONS_SEIS)
-        elif novo_valor == 9:
-            som_aumento = get_som_aleatorio(SONS_NOVE)
-        elif novo_valor == 12:
-            som_aumento = get_som_aleatorio(SONS_DOZE)
+            som_aumento = None
+            if novo_valor == 6:
+                som_aumento = get_som_aleatorio(SONS_SEIS)
+            elif novo_valor == 9:
+                som_aumento = get_som_aleatorio(SONS_NOVE)
+            elif novo_valor == 12:
+                som_aumento = get_som_aleatorio(SONS_DOZE)
 
-        if som_aumento:
-            await emitir_som(nome_sala, som_aumento)
+            if som_aumento:
+                await emitir_som(nome_sala, som_aumento)
 
-        sala['valor_proposto_temp'] = novo_valor
-        sala['pedinte_temp'] = repicador_idx
-        sala['estado_jogo'] = 'TRUCO'
+            sala['valor_proposto_temp'] = novo_valor
+            sala['pedinte_temp'] = repicador_idx
+            sala['estado_jogo'] = 'TRUCO'
 
-        nome_repicador = sala['jogadores_nomes'][repicador_idx]
-        sid_alvo = sala['jogadores'][pedinte_original_idx]
+            nome_repicador = sala['jogadores_nomes'][repicador_idx]
+            sid_alvo = sala['jogadores'][pedinte_original_idx]
 
-        if sid_alvo.startswith('BOT'):
-            asyncio.create_task(bot_responder_truco(nome_sala, pedinte_original_idx, novo_valor))
-        else:
-            await sio.emit(
-                'receber_pedido_truco',
-                {'valor': novo_valor, 'quem_pediu': nome_repicador},
-                to=sid_alvo
-            )
+            if sid_alvo.startswith('BOT'):
+                asyncio.create_task(bot_responder_truco(nome_sala, pedinte_original_idx, novo_valor))
+            else:
+                await sio.emit(
+                    'receber_pedido_truco',
+                    {'valor': novo_valor, 'quem_pediu': nome_repicador},
+                    to=sid_alvo
+                )
     
 @sio.event
 async def pedir_truco(sid, dados):
@@ -709,6 +709,7 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
 
