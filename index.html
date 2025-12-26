@@ -635,8 +635,7 @@
           if (modoAtual === 4) return (idxDono - meuIndice + 4) % 4;
           // modo 2: eu (0) e o outro fica no "parceiro" (diff 2)
           return (idxDono === meuIndice) ? 0 : 2;
-        
-        
+        }      
         function preencherPreviewTrucoModal() {
             const boxMao = document.getElementById('minhas-cartas-truco-view');
             const boxVira = document.getElementById('vira-truco-view');
@@ -1071,6 +1070,7 @@
     </script>
 </body>
 </html>
+
 
 
 
