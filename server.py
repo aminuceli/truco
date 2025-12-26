@@ -145,6 +145,97 @@ async def atualizar_turnos(nome_sala):
 # ==============================================================================
 # 2. LÓGICA DO JOGO
 # ==============================================================================
+# ======================================================================
+# IA DO BOT — PEDIR TRUCO / SEIS / NOVE / DOZE
+# ======================================================================
+
+def bot_deve_pedir_truco(sala, idx_bot):
+    mao = sala['maos_server'][idx_bot]
+    if not mao:
+        return False
+
+    # calcula força das cartas
+    forcas = sorted(
+        [sala['jogo'].calcular_forca(c) for c in mao],
+        reverse=True
+    )
+
+    # critérios simples e eficientes
+    tem_carta_muito_forte = forcas[0] >= 10
+    tem_duas_boas = len(forcas) >= 2 and forcas[1] >= 7
+
+    chance = random.random()  # evita robô perfeito
+
+    if tem_carta_muito_forte and chance < 0.75:
+        return True
+    if tem_duas_boas and chance < 0.55:
+        return True
+
+    return False
+
+
+async def bot_pedir_truco(nome_sala, idx_bot):
+    sala = jogos[nome_sala]
+
+    if sala['estado_jogo'] != 'JOGANDO':
+        return
+
+    atual = sala['mao'].valor_atual
+
+    # define próximo aumento
+    if atual == 1:
+        novo_valor = 3
+    elif atual == 3:
+        novo_valor = 6
+    elif atual == 6:
+        novo_valor = 9
+    elif atual == 9:
+        novo_valor = 12
+    else:
+        return
+
+    sid_bot = sala['jogadores'][idx_bot]
+
+    # usa a mesma lógica do jogador humano
+    await responder_truco_logica(
+        nome_sala,
+        sid_bot,
+        'AUMENTAR',
+        {'valor': novo_valor}
+    )
+
+# ======================================================================
+# IA DO BOT — BLEFE (pode pedir aumento mesmo com mão fraca)
+# ======================================================================
+
+def bot_deve_blefar(sala, idx_bot):
+    mao = sala['maos_server'][idx_bot]
+    if not mao:
+        return False
+
+    # força das cartas
+    forcas = sorted(
+        [sala['jogo'].calcular_forca(c) for c in mao],
+        reverse=True
+    )
+
+    atual = sala['mao'].valor_atual
+
+    # NÃO blefa se já estiver muito alto
+    if atual >= 9:
+        return False
+
+    chance = random.random()
+
+    # blefe puro (mão fraca, mas arrisca)
+    if forcas[0] < 6 and chance < 0.18:
+        return True
+
+    # semi-blefe (1 carta média)
+    if forcas[0] >= 6 and forcas[0] < 8 and chance < 0.35:
+        return True
+
+    return False
 
 async def bot_jogar_delay(nome_sala, idx_bot):
     await asyncio.sleep(1.5)
@@ -153,18 +244,31 @@ async def bot_jogar_delay(nome_sala, idx_bot):
         sala = jogos[nome_sala]
         
         if sala['vez_atual_idx'] != idx_bot: return 
-        
         mao_bot = sala['maos_server'][idx_bot]
-        if not mao_bot: return
-        
+        if not mao_bot:
+            return
+
+# --------------------------------------------------
+# BOT decide: força real OU blefe
+# --------------------------------------------------
+        if bot_deve_pedir_truco(sala, idx_bot) or bot_deve_blefar(sala, idx_bot):
+            await bot_pedir_truco(nome_sala, idx_bot)
+            return
+# --------------------------------------------------
+
+
+# joga carta normalmente
         carta_escolhida = max(mao_bot, key=lambda c: sala['jogo'].calcular_forca(c))
         mao_bot.remove(carta_escolhida)
-        
+
         sid_bot = sala['jogadores'][idx_bot]
         await processar_jogada_carta(nome_sala, sid_bot, carta_escolhida)
+
+        
     except Exception as e:
         print(f"ERRO CRÍTICO NO BOT: {e}")
         traceback.print_exc()
+
 async def processar_jogada_carta(nome_sala, sid, carta_obj):
     if nome_sala not in jogos: return
     sala = jogos[nome_sala]
@@ -713,6 +817,7 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
 
