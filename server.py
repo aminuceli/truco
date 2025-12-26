@@ -150,6 +150,8 @@ async def atualizar_turnos(nome_sala):
 # ======================================================================
 
 def bot_deve_pedir_truco(sala, idx_bot):
+    if sala.get('estado_jogo') != 'JOGANDO' or 11 in sala.get('placar', []):
+        return False
     mao = sala['maos_server'][idx_bot]
     if not mao:
         return False
@@ -180,8 +182,10 @@ async def bot_pedir_truco(nome_sala, idx_bot):
     sala = jogos[nome_sala]
 
     # só pode pedir se estiver jogando e for a vez dele
-    if sala['estado_jogo'] != 'JOGANDO':
+    # bloqueia truco na mão de 11 (igual ao evento pedir_truco)
+    if sala.get('estado_jogo') != 'JOGANDO' or 11 in sala.get('placar', []):
         return
+
     if sala['vez_atual_idx'] != idx_bot:
         return
 
@@ -240,6 +244,8 @@ async def bot_pedir_truco(nome_sala, idx_bot):
 # ======================================================================
 
 def bot_deve_blefar(sala, idx_bot):
+    if sala.get('estado_jogo') != 'JOGANDO' or 11 in sala.get('placar', []):
+        return False
     mao = sala['maos_server'][idx_bot]
     if not mao:
         return False
@@ -856,6 +862,7 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
 
