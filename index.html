@@ -477,6 +477,16 @@
             .placar-sets { font-size: 16px; padding: 5px 15px;left: 10px; transform: none;top: 50px; }
             #btn-sair { padding: 5px 10px; font-size: 12px; top: 10px; right: 10px; }
         }
+        /* === ANIMAÇÃO: adversário jogou (remove 1 carta-verso) === */
+        @keyframes oppCardOut {
+            0%   { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-18px) scale(0.55) rotate(-6deg); opacity: 0; }
+       }
+
+       .carta.carta-verso.play-out {
+           animation: oppCardOut 220ms ease forwards;
+       }
+
     </style>
 </head>
 <body>
@@ -588,7 +598,46 @@
         let donoDaAposta = null;
         let placarAtual = [0, 0];
         let sons = {};
+        // --- CONTROLE DE CARTAS DOS ADVERSÁRIOS ---
+        let mesaAnterior = [];            // para detectar “carta nova”
+        let qtdCartasJogador = [];        // index = dono_idx (quantas cartas ainda tem na mão)
 
+        function diffFromIdx(idxDono) {
+          if (modoAtual === 4) return (idxDono - meuIndice + 4) % 4;
+          // modo 2: eu (0) e o outro fica no "parceiro" (diff 2)
+          return (idxDono === meuIndice) ? 0 : 2;
+        }
+
+        function containerSelFromDiff(diff) {
+          if (diff === 1) return '#pos-rival-dir .cartas-container';
+          if (diff === 2) return '#pos-parceiro .cartas-container';
+          if (diff === 3) return '#pos-rival-esq .cartas-container';
+          return null;
+        }
+
+        function animarRemoverVersoDoOponente(donoIdx) {
+          const diff = diffFromIdx(donoIdx);
+          const sel = containerSelFromDiff(diff);
+          if (!sel) return;
+
+          const box = document.querySelector(sel);
+          if (!box) return;
+
+          const cartas = box.querySelectorAll('.carta.carta-verso');
+          if (!cartas.length) return;
+
+          const ultima = cartas[cartas.length - 1];
+          ultima.classList.add('play-out');
+
+          setTimeout(() => {
+            // remove visual e atualiza contagem
+            if (ultima && ultima.parentNode) ultima.remove();
+            qtdCartasJogador[donoIdx] = Math.max(0, (qtdCartasJogador[donoIdx] ?? 0) - 1);
+          }, 230);
+        }
+
+        
+        
         function carregarSons() {
             const lista = ['card', 'shuffle', 'win', 'lose', 
                 'truco', 'truco1', 
@@ -762,48 +811,57 @@
         const CORES = { 'Ouros': 'naipe-vermelho', 'Copas': 'naipe-vermelho', 'Espadas': 'naipe-preto', 'Paus': 'naipe-preto' };
 
         socket.on('receber_mao', (d) => {
-            atualizarBolinhas([]);
-            if(sons['shuffle']) sons['shuffle'].play().catch(e=>{});
-            
-            const baralhoEl = document.querySelector('.baralho-mesa');
-            baralhoEl.classList.remove('embaralhando'); 
-            void baralhoEl.offsetWidth; 
-            baralhoEl.classList.add('embaralhando');
+          atualizarBolinhas([]);
+          if(sons['shuffle']) sons['shuffle'].play().catch(e=>{});
 
-            mostrarMensagem("Nova Mão!", 1500);
-            meuIndice = d.seu_indice; modoAtual = d.modo_jogo; 
-            
-            ['pos-parceiro','pos-rival-esq','pos-rival-dir'].forEach(id => document.querySelector(`#${id} .cartas-container`).innerHTML = '');
-            ['slot-eu','slot-parceiro','slot-esq','slot-dir'].forEach(id => document.getElementById(id).innerHTML = '');
-            document.getElementById('minhas-cartas-box').innerHTML = '';
-            document.getElementById('slot-vira').innerHTML = '';
-            
-            const cartaVira = criarCartaHTML(d.vira, false);
-            document.querySelector('.vira-container').classList.remove('vira-anim-entrada');
-            void document.querySelector('.vira-container').offsetWidth; 
-            document.querySelector('.vira-container').classList.add('vira-anim-entrada');
-            
-            document.getElementById('slot-vira').appendChild(cartaVira);
-            
-            d.minhas_cartas.forEach((c, index) => {
-                const el = criarCartaHTML(c, true);
-                if(d.blind) el.className += " carta-verso";
-                el.classList.add('carta-distribuida');
-                el.style.animationDelay = `${index * 0.1}s`; 
-                document.getElementById('minhas-cartas-box').appendChild(el);
-            });
+          const baralhoEl = document.querySelector('.baralho-mesa');
+          baralhoEl.classList.remove('embaralhando');
+          void baralhoEl.offsetWidth;
+          baralhoEl.classList.add('embaralhando');
 
-            const qtd = 3; 
-            for(let i=0; i<qtd; i++) {
-                if(modoAtual === 4) {
-                    document.querySelector('#pos-rival-dir .cartas-container').appendChild(criarCartaVerso());
-                    document.querySelector('#pos-parceiro .cartas-container').appendChild(criarCartaVerso());
-                    document.querySelector('#pos-rival-esq .cartas-container').appendChild(criarCartaVerso());
-                } else {
-                    document.querySelector('#pos-parceiro .cartas-container').appendChild(criarCartaVerso());
-                }
+          mostrarMensagem("Nova Mão!", 1500);
+          meuIndice = d.seu_indice;
+          modoAtual = d.modo_jogo;
+
+          // reset controle
+          mesaAnterior = [];
+          qtdCartasJogador = Array(modoAtual).fill(3);
+
+          // limpa UI
+          ['pos-parceiro','pos-rival-esq','pos-rival-dir'].forEach(id => document.querySelector(`#${id} .cartas-container`).innerHTML = '');
+          ['slot-eu','slot-parceiro','slot-esq','slot-dir'].forEach(id => document.getElementById(id).innerHTML = '');
+          document.getElementById('minhas-cartas-box').innerHTML = '';
+          document.getElementById('slot-vira').innerHTML = '';
+
+          // vira
+          const cartaVira = criarCartaHTML(d.vira, false);
+          document.querySelector('.vira-container').classList.remove('vira-anim-entrada');
+          void document.querySelector('.vira-container').offsetWidth;
+          document.querySelector('.vira-container').classList.add('vira-anim-entrada');
+          document.getElementById('slot-vira').appendChild(cartaVira);
+
+          // minhas cartas
+          d.minhas_cartas.forEach((c, index) => {
+            const el = criarCartaHTML(c, true);
+            if(d.blind) el.className += " carta-verso";
+            el.classList.add('carta-distribuida');
+            el.style.animationDelay = `${index * 0.1}s`;
+            document.getElementById('minhas-cartas-box').appendChild(el);
+          });
+
+          // cartas-verso dos adversários (3 cada)
+          const qtd = 3;
+          for(let i=0; i<qtd; i++) {
+            if(modoAtual === 4) {
+              document.querySelector('#pos-rival-dir .cartas-container').appendChild(criarCartaVerso());
+              document.querySelector('#pos-parceiro .cartas-container').appendChild(criarCartaVerso());
+              document.querySelector('#pos-rival-esq .cartas-container').appendChild(criarCartaVerso());
+            } else {
+              document.querySelector('#pos-parceiro .cartas-container').appendChild(criarCartaVerso());
             }
+          }
         });
+
 
         socket.on('decisao_mao_11', (d) => {
             const tituloEl = document.getElementById('msg-mao-11');
@@ -827,15 +885,31 @@
         }
 
         socket.on('atualizar_mesa', (d) => {
-            ['slot-eu','slot-parceiro','slot-esq','slot-dir'].forEach(id => document.getElementById(id).innerHTML = '');
-            d.cartas.forEach(c => {
-                let diff;
-                if(modoAtual === 4) diff = (c.dono_idx - meuIndice + 4) % 4;
-                else { if (c.dono_idx === meuIndice) diff = 0; else diff = 2; }
-                const slot = diff===0?'slot-eu':diff===1?'slot-dir':diff===2?'slot-parceiro':'slot-esq';
-                document.getElementById(slot).appendChild(criarCartaHTML(c, false));
+          const mesaNova = d.cartas || [];
+
+          // Detecta cartas novas (quando a mesa cresce)
+          if (mesaNova.length > mesaAnterior.length) {
+            const novas = mesaNova.slice(mesaAnterior.length);
+            novas.forEach(c => {
+              if (c.dono_idx === undefined || c.dono_idx === null) return;
+              if (c.dono_idx === meuIndice) return; // você já remove sua carta na UI
+              animarRemoverVersoDoOponente(c.dono_idx);
             });
+          }
+
+          // Atualiza slots do centro (como você já fazia)
+          ['slot-eu','slot-parceiro','slot-esq','slot-dir'].forEach(id => document.getElementById(id).innerHTML = '');
+          mesaNova.forEach(c => {
+            let diff;
+            if(modoAtual === 4) diff = (c.dono_idx - meuIndice + 4) % 4;
+            else { if (c.dono_idx === meuIndice) diff = 0; else diff = 2; }
+            const slot = diff===0?'slot-eu':diff===1?'slot-dir':diff===2?'slot-parceiro':'slot-esq';
+            document.getElementById(slot).appendChild(criarCartaHTML(c, false));
+          });
+
+          mesaAnterior = mesaNova;
         });
+
         
         socket.on('status_vez', (d) => {
             const s = document.getElementById('status-vez');
@@ -938,3 +1012,4 @@
     </script>
 </body>
 </html>
+
