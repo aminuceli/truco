@@ -173,16 +173,29 @@ def bot_deve_pedir_truco(sala, idx_bot):
 
     return False
 
-
 async def bot_pedir_truco(nome_sala, idx_bot):
+    # BOT inicia o pedido de aumento igual ao humano (evento pedir_truco)
+    if nome_sala not in jogos:
+        return
     sala = jogos[nome_sala]
 
+    # só pode pedir se estiver jogando e for a vez dele
     if sala['estado_jogo'] != 'JOGANDO':
         return
+    if sala['vez_atual_idx'] != idx_bot:
+        return
+
+    # respeita regra do core (se existir)
+    try:
+        pode, msg = sala['mao'].pode_pedir_aumento(idx_bot)
+        if not pode:
+            return
+    except:
+        pass
 
     atual = sala['mao'].valor_atual
 
-    # define próximo aumento
+    # próximo valor
     if atual == 1:
         novo_valor = 3
     elif atual == 3:
@@ -194,15 +207,33 @@ async def bot_pedir_truco(nome_sala, idx_bot):
     else:
         return
 
-    sid_bot = sala['jogadores'][idx_bot]
+    # muda estado para TRUCO e registra o “pedinte”
+    sala['estado_jogo'] = 'TRUCO'
+    sala['pedinte_temp'] = idx_bot
+    sala['valor_proposto_temp'] = novo_valor
 
-    # usa a mesma lógica do jogador humano
-    await responder_truco_logica(
-        nome_sala,
-        sid_bot,
-        'AUMENTAR',
-        {'valor': novo_valor}
-    )
+    # toca som certo (truco/seis/nove/doze)
+    som_escolhido = get_som_aleatorio(SONS_TRUCO)
+    if novo_valor == 6:
+        som_escolhido = get_som_aleatorio(SONS_SEIS)
+    elif novo_valor == 9:
+        som_escolhido = get_som_aleatorio(SONS_NOVE)
+    elif novo_valor == 12:
+        som_escolhido = get_som_aleatorio(SONS_DOZE)
+
+    await emitir_som(nome_sala, som_escolhido)
+
+    # envia pedido ao próximo jogador (mesma lógica do seu pedir_truco)
+    prox = (idx_bot + 1) % sala['max_jogadores']
+    sid_op = sala['jogadores'][prox]
+    nome_bot = sala['jogadores_nomes'][idx_bot]
+
+    if sid_op.startswith('BOT'):
+        asyncio.create_task(bot_responder_truco(nome_sala, prox, novo_valor))
+    else:
+        await sio.emit('receber_pedido_truco', {'valor': novo_valor, 'quem_pediu': nome_bot}, to=sid_op)
+        await sio.emit('aguardando_truco', {}, to=sala['jogadores'][idx_bot])
+
 
 # ======================================================================
 # IA DO BOT — BLEFE (pode pedir aumento mesmo com mão fraca)
@@ -242,27 +273,35 @@ async def bot_jogar_delay(nome_sala, idx_bot):
     try:
         if nome_sala not in jogos: return
         sala = jogos[nome_sala]
+
+        if sala.get('estado_jogo') != 'JOGANDO':
+            return
         
-        if sala['vez_atual_idx'] != idx_bot: return 
+        if sala['vez_atual_idx'] != idx_bot: 
+            return 
+            
         mao_bot = sala['maos_server'][idx_bot]
         if not mao_bot:
             return
 
-# --------------------------------------------------
-# BOT decide: força real OU blefe
-# --------------------------------------------------
+        # decide truco / aumento (força real ou blefe)
         if bot_deve_pedir_truco(sala, idx_bot) or bot_deve_blefar(sala, idx_bot):
             await bot_pedir_truco(nome_sala, idx_bot)
             return
-# --------------------------------------------------
 
-
-# joga carta normalmente
-        carta_escolhida = max(mao_bot, key=lambda c: sala['jogo'].calcular_forca(c))
+        # joga carta normalmente
+        carta_escolhida = max(
+            mao_bot,
+            key=lambda c: sala['jogo'].calcular_forca(c)
+        )
         mao_bot.remove(carta_escolhida)
 
         sid_bot = sala['jogadores'][idx_bot]
-        await processar_jogada_carta(nome_sala, sid_bot, carta_escolhida)
+        await processar_jogada_carta(
+            nome_sala,
+            sid_bot,
+            carta_escolhida
+        )
 
         
     except Exception as e:
@@ -817,6 +856,7 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
 
