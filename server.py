@@ -30,16 +30,18 @@ static_files = {
 
 app = socketio.ASGIApp(sio, static_files=static_files)
 
-# Listas de sons (CORRETAS: Sem .mp3)
-SONS_TRUCO = ['truco', 'truco1'] 
-SONS_SEIS = ['seis']
-SONS_NOVE = ['nove']
-SONS_DOZE = ['doze']
+# Listas de sons (SEM .mp3)
+SONS_TRUCO = ['truco', 'truco1']
+SONS_SEIS  = ['seis']
+SONS_NOVE  = ['nove']
+SONS_DOZE  = ['doze']
 SONS_CORRER = ['correr', 'correr1']
 
 def get_som_aleatorio(lista):
-    if not lista: return None
+    if not lista:
+        return None
     return random.choice(lista)
+
 
 jogos = {}
 ultimos_sinais = {} 
@@ -475,55 +477,59 @@ async def responder_truco_logica(nome_sala, sid, resposta, dados_extras=None):
         idx = sala['jogadores'].index(sid)
         idx_vencedor = 1 if (idx % 2) == 0 else 0
         await finalizar_mao(nome_sala, idx_vencedor)
-    
     elif resposta == 'AUMENTAR':
-        # 1. Confirma o valor anterior na mesa
-        if 'valor_proposto_temp' in sala:
-             sala['mao'].valor_atual = sala['valor_proposto_temp']
+    # Confirma o valor anterior
+    if 'valor_proposto_temp' in sala:
+        sala['mao'].valor_atual = sala['valor_proposto_temp']
 
-        pedinte_original_idx = sala.get('pedinte_temp')
-        repicador_idx = sala['jogadores'].index(sid)
-        
-        # --- CORREÇÃO DE LEITURA DO VALOR (Blindagem) ---
-        # Tenta pegar 'novo_valor' ou 'valor' de qualquer lugar possível
-        val_recebido = 0
-        if dados_extras:
-            val_recebido = dados_extras.get('novo_valor') or dados_extras.get('valor') or 0
-        
-        # Se falhar, tenta deduzir pela lógica (3->6, 6->9, 9->12)
-        if not val_recebido:
-            atual = sala['mao'].valor_atual
-            if atual == 3: val_recebido = 6
-            elif atual == 6: val_recebido = 9
-            elif atual == 9: val_recebido = 12
+    pedinte_original_idx = sala.get('pedinte_temp')
+    repicador_idx = sala['jogadores'].index(sid)
 
-        novo_valor = int(val_recebido)
-        # --------------------------------------------------
+    # Leitura segura do valor
+    val_recebido = 0
+    if dados_extras:
+        val_recebido = dados_extras.get('novo_valor') or dados_extras.get('valor') or 0
 
-        som_aumento = None
+    if not val_recebido:
+        atual = sala['mao'].valor_atual
+        if atual == 3:
+            val_recebido = 6
+        elif atual == 6:
+            val_recebido = 9
+        elif atual == 9:
+            val_recebido = 12
 
-        if novo_valor == 6:
-            som_aumento = get_som_aleatorio(SONS_SEIS)
-        elif novo_valor == 9:
-            som_aumento = get_som_aleatorio(SONS_NOVE)
-        elif novo_valor == 12:
-            som_aumento = get_som_aleatorio(SONS_DOZE)
+    novo_valor = int(val_recebido)
 
-        if som_aumento:
-            await emitir_som(nome_sala, som_aumento)
+    # Escolha do som (IGUAL AO TRUCO)
+    som_aumento = None
+    if novo_valor == 6:
+        som_aumento = get_som_aleatorio(SONS_SEIS)
+    elif novo_valor == 9:
+        som_aumento = get_som_aleatorio(SONS_NOVE)
+    elif novo_valor == 12:
+        som_aumento = get_som_aleatorio(SONS_DOZE)
 
-        
-        sala['valor_proposto_temp'] = novo_valor 
-        sala['pedinte_temp'] = repicador_idx 
-        sala['estado_jogo'] = 'TRUCO' 
-        
-        nome_repicador = sala['jogadores_nomes'][repicador_idx]
-        sid_alvo = sala['jogadores'][pedinte_original_idx] 
-        
-        if sid_alvo.startswith('BOT'):
-            asyncio.create_task(bot_responder_truco(nome_sala, pedinte_original_idx, novo_valor))
-        else:
-            await sio.emit('receber_pedido_truco', {'valor': novo_valor, 'quem_pediu': nome_repicador}, to=sid_alvo)
+    if som_aumento:
+        await emitir_som(nome_sala, som_aumento)
+
+    sala['valor_proposto_temp'] = novo_valor
+    sala['pedinte_temp'] = repicador_idx
+    sala['estado_jogo'] = 'TRUCO'
+
+    nome_repicador = sala['jogadores_nomes'][repicador_idx]
+    sid_alvo = sala['jogadores'][pedinte_original_idx]
+
+    if sid_alvo.startswith('BOT'):
+        asyncio.create_task(bot_responder_truco(nome_sala, pedinte_original_idx, novo_valor))
+    else:
+        await sio.emit(
+            'receber_pedido_truco',
+            {'valor': novo_valor, 'quem_pediu': nome_repicador},
+            to=sid_alvo
+        )
+
+    
 @sio.event
 async def pedir_truco(sid, dados):
     n = dados['nome_sala']
@@ -543,23 +549,21 @@ async def pedir_truco(sid, dados):
     sala['pedinte_temp'] = idx
     sala['valor_proposto_temp'] = dados['valor']
     
-    # --- BLOCO CORRIGIDO DOS SONS ---
-    # 1. Pega som padrão
-    som_escolhido = get_som_aleatorio(SONS_TRUCO) 
-    
-    # 2. Converte valor
-    val = int(dados['valor']) 
-    
-    # 3. Substitui se for maior (SEM o = 'seis' no final)
+    # --- BLOCO DE SOM (SUBSTITUIR) ---
+    som_escolhido = get_som_aleatorio(SONS_TRUCO)
+    val = int(dados['valor'])
+
     if val == 6:
         som_escolhido = get_som_aleatorio(SONS_SEIS)
     elif val == 9:
         som_escolhido = get_som_aleatorio(SONS_NOVE)
     elif val == 12:
         som_escolhido = get_som_aleatorio(SONS_DOZE)
-        
+
     await emitir_som(n, som_escolhido)
-    # --------------------------------
+# --------------------------------
+
+    
   
     prox = (idx + 1) % sala['max_jogadores']
     sid_op = sala['jogadores'][prox]
@@ -705,6 +709,7 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
 
