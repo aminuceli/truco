@@ -1,4 +1,4 @@
-isimport socketio
+import socketio
 import asyncio
 import random
 import time
@@ -709,6 +709,7 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
 
