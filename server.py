@@ -291,9 +291,15 @@ async def bot_jogar_delay(nome_sala, idx_bot):
             return
 
         # decide truco / aumento (força real ou blefe)
+        # decide truco / aumento (força real ou blefe)
         if bot_deve_pedir_truco(sala, idx_bot) or bot_deve_blefar(sala, idx_bot):
             await bot_pedir_truco(nome_sala, idx_bot)
-            return
+ 
+        # se o pedido REALMENTE foi feito, o estado vira TRUCO -> para aqui
+         # se não conseguiu pedir (pode_pedir_aumento negou), segue e joga carta
+            if sala.get('estado_jogo') == 'TRUCO':
+                return
+
 
         # joga carta normalmente
         carta_escolhida = max(
@@ -862,6 +868,7 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
 
