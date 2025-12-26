@@ -180,6 +180,13 @@ async def bot_pedir_truco(nome_sala, idx_bot):
     if nome_sala not in jogos:
         return
     sala = jogos[nome_sala]
+        # GARANTIA FORTE: só pede truco se for realmente a vez do BOT (SID)
+    sid_da_vez = sala['jogadores'][sala['vez_atual_idx']]
+    sid_bot = sala['jogadores'][idx_bot]
+
+    # se não for a vez do bot, nem tenta
+    if sid_da_vez != sid_bot:
+        return
 
     # só pode pedir se estiver jogando e for a vez dele
     # bloqueia truco na mão de 11 (igual ao evento pedir_truco)
@@ -285,6 +292,11 @@ async def bot_jogar_delay(nome_sala, idx_bot):
         
         if sala['vez_atual_idx'] != idx_bot: 
             return 
+
+        # GARANTIA EXTRA: confirma pelo SID (evita pedir no turno do humano)
+        if sala['jogadores'][sala['vez_atual_idx']] != sala['jogadores'][idx_bot]:
+            return
+
             
         mao_bot = sala['maos_server'][idx_bot]
         if not mao_bot:
@@ -868,6 +880,7 @@ sio.start_background_task(loop_monitoramento_afk)
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
 
