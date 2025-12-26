@@ -627,6 +627,7 @@
         let donoDaAposta = null;
         let placarAtual = [0, 0];
         let sons = {};
+        
         // --- CONTROLE DE CARTAS DOS ADVERSÁRIOS ---
         let mesaAnterior = [];            // para detectar “carta nova”
         let qtdCartasJogador = [];        // index = dono_idx (quantas cartas ainda tem na mão)
@@ -635,7 +636,8 @@
           if (modoAtual === 4) return (idxDono - meuIndice + 4) % 4;
           // modo 2: eu (0) e o outro fica no "parceiro" (diff 2)
           return (idxDono === meuIndice) ? 0 : 2;
-        }      
+        } // <--- CORREÇÃO 1: Chave adicionada aqui
+
         function preencherPreviewTrucoModal() {
             const boxMao = document.getElementById('minhas-cartas-truco-view');
             const boxVira = document.getElementById('vira-truco-view');
@@ -643,7 +645,8 @@
 
             boxMao.innerHTML = '';
             boxVira.innerHTML = '';
-  // ✅ Tenta achar a vira (ajuste aqui se seu seletor for diferente)
+
+            // Tenta achar a vira
             const viraSrc =
                document.querySelector('#slot-vira .carta') ||
                document.querySelector('.vira-container .carta') ||
@@ -651,7 +654,7 @@
 
             if (viraSrc) boxVira.appendChild(viraSrc.cloneNode(true));
 
-  // ✅ Tenta achar suas cartas (ajuste aqui se seu seletor for diferente)
+            // Tenta achar suas cartas
             const minhasCartasSrc =
                document.querySelectorAll('#pos-eu .cartas-container .carta').length
                  ? document.querySelectorAll('#pos-eu .cartas-container .carta')
@@ -659,8 +662,6 @@
 
              minhasCartasSrc.forEach(c => boxMao.appendChild(c.cloneNode(true)));
         }     
-        
-        }
 
         function containerSelFromDiff(diff) {
           if (diff === 1) return '#pos-rival-dir .cartas-container';
@@ -690,8 +691,6 @@
           }, 230);
         }
 
-        
-        
         function carregarSons() {
             const lista = ['card', 'shuffle', 'win', 'lose', 
                 'truco', 'truco1', 
@@ -700,6 +699,7 @@
                 'doze', 'doze1',
                 'correr', 'correr1'];
             lista.forEach(s => {
+                // <--- CORREÇÃO 2: Sintaxe correta de Template String
                 sons[s] = new Audio(`${s}.mp3`);
                 sons[s].volume = 0.5;
                 sons[s].onerror = () => console.log(`Audio ${s}.mp3 não encontrado.`);
@@ -710,7 +710,6 @@
         socket.on('tocar_som', (d) => { if(sons[d.som]) sons[d.som].play().catch(e=>{}); });
 
         // --- LOBBY ---
-        
         socket.on('connect', () => socket.emit('pedir_lista_salas'));
         socket.on('atualizar_lista_salas_lobby', () => socket.emit('pedir_lista_salas'));
 
@@ -855,16 +854,17 @@
         }
 
         function criarCartaHTML(carta, clicavel=true) {
-            const simbolo = SIMBOLOS[carta.naipe]; const classeCor = CORES[carta.naipe];
+            const SIMBOLOS = { 'Ouros': '♦', 'Espadas': '♠', 'Copas': '♥', 'Paus': '♣' };
+            const CORES = { 'Ouros': 'naipe-vermelho', 'Copas': 'naipe-vermelho', 'Espadas': 'naipe-preto', 'Paus': 'naipe-preto' };
+            
+            const simbolo = SIMBOLOS[carta.naipe]; 
+            const classeCor = CORES[carta.naipe];
             const div = document.createElement('div'); div.className = 'carta';
             div.innerHTML = `<div class="valor-topo ${classeCor}">${carta.valor}</div><div class="naipe-centro ${classeCor}">${simbolo}</div><div class="valor-base ${classeCor}">${carta.valor}</div>`;
             if(clicavel) div.onclick = () => jogarCarta(carta, div);
             return div;
         }
         function criarCartaVerso() { const d = document.createElement('div'); d.className = 'carta carta-verso'; return d; }
-
-        const SIMBOLOS = { 'Ouros': '♦', 'Espadas': '♠', 'Copas': '♥', 'Paus': '♣' };
-        const CORES = { 'Ouros': 'naipe-vermelho', 'Copas': 'naipe-vermelho', 'Espadas': 'naipe-preto', 'Paus': 'naipe-preto' };
 
         socket.on('receber_mao', (d) => {
           atualizarBolinhas([]);
@@ -953,7 +953,7 @@
             });
           }
 
-          // Atualiza slots do centro (como você já fazia)
+          // Atualiza slots do centro
           ['slot-eu','slot-parceiro','slot-esq','slot-dir'].forEach(id => document.getElementById(id).innerHTML = '');
           mesaNova.forEach(c => {
             let diff;
@@ -965,7 +965,6 @@
 
           mesaAnterior = mesaNova;
         });
-
         
         socket.on('status_vez', (d) => {
             const s = document.getElementById('status-vez');
@@ -1017,11 +1016,17 @@
         
         socket.on('receber_pedido_truco', (d) => {
             propostaValor = d.valor;
-            document.getElementById('titulo-modal').innerText = {3:"TRUCO!",6:"SEIS!",9:"NOVE!",12:"DOZE!"}[d.valor];
+            const textos = {3:"TRUCO!", 6:"SEIS!", 9:"NOVE!", 12:"DOZE!"};
+            document.getElementById('titulo-modal').innerText = textos[d.valor] || "TRUCO!";
             document.getElementById('quem-pediu-nome').innerText = d.quem_pediu;
+            
             const btn = document.getElementById('btn-aumentar-modal');
             let txt = "", show = true;
-            if(d.valor===3) txt="PEDIR 6"; else if(d.valor===6) txt="PEDIR 9"; else if(d.valor===9) txt="PEDIR 12"; else show=false;
+            if(d.valor===3) txt="PEDIR 6"; 
+            else if(d.valor===6) txt="PEDIR 9"; 
+            else if(d.valor===9) txt="PEDIR 12"; 
+            else show=false;
+            
             btn.innerText=txt; btn.style.display=show?'inline-block':'none';
             preencherPreviewTrucoModal();
             document.getElementById('modal-truco').style.display='flex';
@@ -1055,6 +1060,7 @@
                 btn.style.display = 'none'; 
             } else {
                 btn.style.display = 'block';
+                // Lógica simples: se fui eu que apostei, não posso aumentar minha própria aposta até eles responderem
                 if (donoDaAposta === meuIndice || interfaceBloqueada) {
                     btn.disabled = true;
                     btn.style.opacity = "0.5";
@@ -1069,6 +1075,7 @@
     </script>
 </body>
 </html>
+
 
 
 
