@@ -82,8 +82,22 @@
             transform: translate(-50%, -50%) rotate(90deg) translateY(-50px); 
             z-index: 5; 
             transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+            
+        }
+        .truco-preview-vira,
+        .truco-preview-mao{
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            gap:6px;
+            transform: scale(0.85);
+            transform-origin: center;
         }
 
+        #modal-truco .carta{
+            pointer-events:none;
+        }            
         @keyframes shakeDeck {
             0% { transform: translate(-50%, -50%) rotate(0deg); }
             20% { transform: translate(-52%, -48%) rotate(-5deg); }
@@ -540,7 +554,22 @@
 
     <div id="modal-truco">
         <div id="titulo-modal" class="titulo-modal">TRUCO!</div>
-        <div style="color:white; font-size: 20px; margin-bottom: 30px; text-align: center;">Pediu: <span id="quem-pediu-nome" style="color: #4caf50; font-weight: bold;"></span></div>
+        <div style="color:white; font-size: 20px; margin-bottom: 30px; text-align: center;">
+            Pediu: <span id="quem-pediu-nome" style="color: #4caf50; font-weight: bold;"></span></div>
+        <div id="truco-preview" style="width: 100%; display:flex; flex-direction: column; gap: 12px; align-items:center; margin-bottom: 25px;">
+
+            <div style="text-align:center;">
+              <div style="color:#ddd; font-size: 14px; margin-bottom: 6px;">Vira da rodada</div>
+              <div id="vira-truco-view" class="truco-preview-vira"></div>
+            </div>
+
+            <div style="text-align:center;">
+              <div style="color:#ddd; font-size: 14px; margin-bottom: 6px;">Suas cartas</div>
+              <div id="minhas-cartas-truco-view" class="truco-preview-mao"></div>
+            </div>
+
+          </div>      
+        
         <div class="container-botoes-truco">
             <button class="btn-resposta btn-aceitar" onclick="responder('ACEITAR')">ACEITAR</button>
             <button class="btn-resposta btn-correr" onclick="responder('CORRER')">CORRER</button>
@@ -606,6 +635,33 @@
           if (modoAtual === 4) return (idxDono - meuIndice + 4) % 4;
           // modo 2: eu (0) e o outro fica no "parceiro" (diff 2)
           return (idxDono === meuIndice) ? 0 : 2;
+        
+        
+        function preencherPreviewTrucoModal() {
+            const boxMao = document.getElementById('minhas-cartas-truco-view');
+            const boxVira = document.getElementById('vira-truco-view');
+            if (!boxMao || !boxVira) return;
+
+            boxMao.innerHTML = '';
+            boxVira.innerHTML = '';
+
+  // ✅ Tenta achar a vira (ajuste aqui se seu seletor for diferente)
+            const viraSrc =
+               document.querySelector('#slot-vira .carta') ||
+               document.querySelector('.vira-container .carta') ||
+               document.querySelector('#vira-container .carta');
+
+            if (viraSrc) boxVira.appendChild(viraSrc.cloneNode(true));
+
+  // ✅ Tenta achar suas cartas (ajuste aqui se seu seletor for diferente)
+            const minhasCartasSrc =
+               document.querySelectorAll('#pos-eu .cartas-container .carta').length
+                 ? document.querySelectorAll('#pos-eu .cartas-container .carta')
+                 : document.querySelectorAll('.minhas-cartas .carta, #minhas-cartas .carta, #cartas-jogador .carta');
+
+             minhasCartasSrc.forEach(c => boxMao.appendChild(c.cloneNode(true)));
+        }     
+        
         }
 
         function containerSelFromDiff(diff) {
@@ -969,6 +1025,7 @@
             let txt = "", show = true;
             if(d.valor===3) txt="PEDIR 6"; else if(d.valor===6) txt="PEDIR 9"; else if(d.valor===9) txt="PEDIR 12"; else show=false;
             btn.innerText=txt; btn.style.display=show?'inline-block':'none';
+            preencherPreviewTrucoModal();
             document.getElementById('modal-truco').style.display='flex';
         });
 
@@ -1014,5 +1071,6 @@
     </script>
 </body>
 </html>
+
 
 
