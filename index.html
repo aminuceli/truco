@@ -993,7 +993,13 @@
         });
         
         socket.on('truco_respondido', (d) => {
-             mostrarMensagem(d.msg, 2000);
+            mostrarMensagem(d.msg, 2000);
+        }); 
+
+        socket.on('fechar_modal_truco', () => {
+            const modal = document.getElementById('modal-truco');
+            if (modal) modal.style.display = 'none';
+        
         });
         
         socket.on('fim_de_jogo', (d) => {
@@ -1075,6 +1081,7 @@
     </script>
 </body>
 </html>
+
 
 
 
